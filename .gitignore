@@ -1,0 +1,12 @@
+#Data folder
+data/
+#Model folder
+models/
+#Log folder
+log/
+#env api keys
+.env
+saved_models/
+__pycache__/
+wandb/
+vae_dataset/
