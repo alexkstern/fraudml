@@ -82,13 +82,149 @@ def process_dataset(model, dataloader, device, prefix=""):
         "recon_feature_name": recon_feature_name
     }
 
-def main():
+def main_dataset_original_and_reconstruction_error():
     # Configuration paths
-    config_path = 'configs/classifier/classifier.config'
-    fraud_model_path = 'saved_models/fraud/v1/VariationalAutoEncoder_fraud_20250305-161711_epoch36_val61.1807.pt'
-    non_fraud_model_path = 'saved_models/non_fraud/v1/VariationalAutoEncoder_non-fraud_20250305-163324_epoch5_val18.5573.pt'
+    import os
+    
+    # Get the current working directory and parent directory
+    cwd = os.getcwd()
+    parent_dir = os.path.dirname(cwd)
+    
+    print(f"Current working directory: {cwd}")
+    print(f"Parent directory: {parent_dir}")
+    
+    # Build paths using the parent directory
+    config_path = os.path.join(parent_dir, 'configs/classifier/classifier.config')
+    fraud_model_path = os.path.join(parent_dir, 'saved_models/fraud/v1/VariationalAutoEncoder_fraud_20250305-161711_epoch36_val61.1807.pt')
+    non_fraud_model_path = os.path.join(parent_dir, 'saved_models/non_fraud/v1/VariationalAutoEncoder_non-fraud_20250305-163324_epoch5_val18.5573.pt')
     output_dir = 'vae_dataset'
     
+    print(f"Using config path: {config_path}")
+    print(f"Using fraud model path: {fraud_model_path}")
+    print(f"Using non-fraud model path: {non_fraud_model_path}")
+    
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+    # Set device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+    
+    # Load configuration
+    config = load_config(config_path)
+    
+    # Load both models
+    fraud_model = load_vae_model(fraud_model_path, config)
+    non_fraud_model = load_vae_model(non_fraud_model_path, config)
+    
+    # Load raw datasets (without class filtering)
+    print("Loading raw datasets (without filtering)...")
+    data = load_fraud_data(config_path=config_path, class_filter=None)
+    
+    # Process all splits (train, val, test)
+    for split, dataloader in data['dataloaders'].items():
+        print(f"\nProcessing {split} split...")
+        
+        # Get the dataset for this split to extract labels and original data
+        dataset = dataloader.dataset.dataset
+        feature_cols = dataloader.dataset.feature_cols
+        
+        # Collect all samples individually to ensure consistency
+        all_samples = []
+        all_labels = []
+        
+        # Extract samples and labels directly from the dataset
+        print(f"Extracting original data and labels from {split} dataset...")
+        for i in tqdm(range(len(dataset))):
+            sample = dataset[i]
+            features = []
+            for col in feature_cols:
+                features.append(sample[col])
+            
+            all_samples.append(features)
+            
+            # Get label (assuming 'Class' is the label column)
+            if 'Class' in sample:
+                all_labels.append(sample['Class'])
+        
+        # Convert to numpy arrays
+        original_data = np.array(all_samples)
+        if all_labels:
+            labels = np.array(all_labels)
+            
+        print(f"Original data shape: {original_data.shape}")
+        if all_labels:
+            print(f"Labels shape: {labels.shape}")
+        
+        # Process through VAEs to get reconstruction errors only
+        fraud_features = process_dataset(fraud_model, dataloader, device, prefix="fraud_")
+        non_fraud_features = process_dataset(non_fraud_model, dataloader, device, prefix="non_fraud_")
+        
+        # Combine original features with reconstruction errors
+        combined_features = np.hstack([
+            original_data,  # Include the original data features
+            fraud_features['recon_errors'],
+            non_fraud_features['recon_errors']
+        ])
+        
+        print(f"Combined features shape: {combined_features.shape}")
+        
+        # Combined feature names
+        # First get the original feature names
+        original_feature_names = [f"original_{i}" for i in range(original_data.shape[1])]
+        
+        # Then combine with reconstruction error feature names
+        all_feature_names = (
+            original_feature_names +
+            fraud_features['recon_feature_name'] +
+            non_fraud_features['recon_feature_name']
+        )
+        
+        # Save the combined features, feature names, original data and labels
+        np.save(os.path.join(output_dir, f'{split}_combined_features.npy'), combined_features)
+        np.save(os.path.join(output_dir, f'{split}_feature_names.npy'), np.array(all_feature_names))
+        np.save(os.path.join(output_dir, f'{split}_original_data.npy'), original_data)  # Also save original data separately
+        if all_labels:
+            np.save(os.path.join(output_dir, f'{split}_labels.npy'), labels)
+        
+        print(f"Saved {split} features to {output_dir} directory")
+        
+        # Save a metadata file with descriptions
+        with open(os.path.join(output_dir, f'{split}_metadata.txt'), 'w') as f:
+            f.write(f"Combined features shape: {combined_features.shape}\n")
+            f.write(f"Feature names: {all_feature_names}\n")
+            if all_labels:
+                f.write(f"Labels shape: {labels.shape}\n")
+            f.write(f"Original data shape: {original_data.shape}\n")
+            f.write("\nFeature descriptions:\n")
+            f.write("- original_*: Original input features\n")
+            f.write("- fraud_recon_error: Reconstruction error from the fraud VAE\n")
+            f.write("- non_fraud_recon_error: Reconstruction error from the non-fraud VAE\n")
+    
+    print("\nAll features have been created and saved to the 'vae_dataset' directory!")
+    print("\nNext steps: You can now use these features for downstream classification tasks.")
+
+
+def main_create_dataset_with_only_latent_feature_vec():
+    # Configuration paths
+    import os
+    
+    # Get the current working directory and parent directory
+    cwd = os.getcwd()
+    parent_dir = os.path.dirname(cwd)
+    
+    print(f"Current working directory: {cwd}")
+    print(f"Parent directory: {parent_dir}")
+    
+    # Build paths using the parent directory
+    config_path = os.path.join(parent_dir, 'configs/classifier/classifier.config')
+    fraud_model_path = os.path.join(parent_dir, 'saved_models/fraud/v1/VariationalAutoEncoder_fraud_20250305-161711_epoch36_val61.1807.pt')
+    non_fraud_model_path = os.path.join(parent_dir, 'saved_models/non_fraud/v1/VariationalAutoEncoder_non-fraud_20250305-163324_epoch5_val18.5573.pt')
+    output_dir = 'vae_dataset'
+    
+    print(f"Using config path: {config_path}")
+    print(f"Using fraud model path: {fraud_model_path}")
+    print(f"Using non-fraud model path: {non_fraud_model_path}")
+
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
@@ -99,13 +235,13 @@ def main():
     # Load configuration
     config = load_config(config_path)
     
-    # Load raw datasets (without class filtering)
-    print("Loading raw datasets (without filtering)...")
-    data = load_fraud_data(config_path=config_path, class_filter=None)
-    
     # Load both models
     fraud_model = load_vae_model(fraud_model_path, config)
     non_fraud_model = load_vae_model(non_fraud_model_path, config)
+
+    # Load raw datasets (without class filtering)
+    print("Loading raw datasets (without filtering)...")
+    data = load_fraud_data(config_path=config_path, class_filter=None)
     
     # Process all splits (train, val, test)
     for split, dataloader in data['dataloaders'].items():
@@ -190,4 +326,4 @@ def main():
     print("\nNext steps: You can now use these features for downstream classification tasks.")
 
 if __name__ == "__main__":
-    main()
+    main_dataset_original_and_reconstruction_error()
