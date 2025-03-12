@@ -169,9 +169,9 @@ class CreditCardFraudDataset(Dataset):
         def conv_collate_fn(batch):
             # Stack into a tensor of shape (batch, total_num_features)
             data = torch.stack(batch)
-            # If conv flag is True and the tensor is 2D, unsqueeze to get shape (batch, 1, total_num_features)
-            if self.conv and data.ndim == 2:
-                data = data.unsqueeze(1)
+            # If conv flag is True, reshape to get shape (batch, 1, total_num_features)
+            if self.conv:
+                data = data.view(data.size(0), 1, -1)  # Use view instead of unsqueeze
             return data
 
         

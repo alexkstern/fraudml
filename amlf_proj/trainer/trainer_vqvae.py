@@ -1,5 +1,6 @@
 import torch
 from tqdm import tqdm
+#from tqdm.notebook import tqdm
 
 class VQVAETrainer:
     def __init__(self, model, dataloaders, loss_function, optimizer, device=None):
@@ -21,10 +22,11 @@ class VQVAETrainer:
     def train_epoch(self):
         self.model.train()
         running_loss = 0.0
-        pbar = tqdm(self.dataloaders['train'], desc="Training VQVAE", leave=False)
+        pbar = tqdm(self.dataloaders['train'], desc="Training VQVAE", leave=False,position=0)
         for batch in pbar:
             batch = batch.to(self.device)
             self.optimizer.zero_grad()
+            # Add this before model(batch) in your trainer_vqvae.py
             recon, vq_loss = self.model(batch)
             loss = self.loss_function(recon, batch, vq_loss)
             loss.backward()
@@ -38,7 +40,7 @@ class VQVAETrainer:
         self.model.eval()
         running_loss = 0.0
         with torch.no_grad():
-            pbar = tqdm(self.dataloaders['val'], desc="Validating VQVAE", leave=False)
+            pbar = tqdm(self.dataloaders['val'], desc="Validating VQVAE", leave=False,position=0)
             for batch in pbar:
                 batch = batch.to(self.device)
                 recon, vq_loss = self.model(batch)
