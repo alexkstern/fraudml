@@ -400,7 +400,9 @@ def load_fraud_data(train_dataset=None,
 
 # Example usage of the dataloader script (this part runs when executing the script directly)
 if __name__ == "__main__":
-    config_path = os.path.join(os.path.dirname(__file__), "..", "configs", "conv_vae", "fraud_conv_vae.config")
+    #config_path = os.path.join(os.path.dirname(__file__), "..", "configs", "conv_vae", "fraud_conv_vae.config")
+    config_path = os.path.join(os.path.dirname(__file__), "..", "configs", "classifier", "classifier.config")
+
     data = load_fraud_data(config_path=config_path)
     print(f"Input dimension: {data['input_dim']}")
     print(f"Normalization statistics: {data['stats_dict']}")
