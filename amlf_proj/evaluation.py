@@ -9,6 +9,7 @@ from models.conv_vae_model import ConvVae
 from models.transformer_vae_model import TransformerVae
 from models.conv_vqvae_model import ConvVQVAE
 from models.transformer_vqvae_model import TransformerVQVAE
+import configparser
 
 def load_model(model_path, model_class, config):
     """
@@ -258,7 +259,7 @@ def find_best_threshold(error_ratios, true_labels, thresholds=None):
     
     return best_threshold, best_f1
 
-def main():
+"""def main():
     # Configuration
     config_path = "configs/classifier/classifier.config"
     
@@ -300,7 +301,46 @@ def main():
         test_dataloader,
         device,
         model_type='vae'
+    )"""
+def main():
+    # Configuration
+    config_path = "configs/classifier/classifier.config"
+    
+    # Model paths - REPLACE THESE WITH YOUR ACTUAL MODEL PATHS
+    # For Conv VAE
+    fraud_model_path = "saved_models/conv_vae/fraud_conv_vae/20250313_173415/best_model.pt"
+    normal_model_path = "saved_models/conv_vae/normal_conv_vae/20250313_175713/best_model.pt"
+    
+    model_config = "configs/conv_vae/fraud_conv_vae.config"
+    
+    # Load classification data that includes labels
+    data = load_fraud_classification_data(config_path=config_path)
+    test_dataloader = data['dataloaders']['test']
+    
+    # Load configuration for the model
+    config_parser = configparser.ConfigParser()
+    config_parser.read(model_config)
+    vae_config = config_parser["Conv_VAE"]
+    
+    # Determine device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+    
+    # Dictionary to store results for each model type
+    all_results = {}
+    
+    # Evaluate Conv VAE
+    print("\n--- Evaluating Conv VAE models ---")
+    conv_vae_results = evaluate_models(
+        fraud_model_path,
+        normal_model_path,
+        ConvVae,
+        vae_config,
+        test_dataloader,
+        device,
+        model_type='vae'
     )
+    # ... rest of the function ...
     all_results['conv_vae'] = conv_vae_results
     
     # Find the best threshold
