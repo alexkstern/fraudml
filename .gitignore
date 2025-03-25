@@ -10,3 +10,4 @@ __pycache__/
 wandb/
 vae_dataset/
 __pycache__/
+transformer_vqvae/
