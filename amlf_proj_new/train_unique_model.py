@@ -8,11 +8,14 @@ import configparser
 # Import our modules
 from models.conv_vae_model import ConvVae, vae_loss_function, print_num_params
 from trainer.trainer_vae import VAETrainer  # Updated trainer
+# Add this import for VQVAETrainer
+from trainer.trainer_vqvae import VQVAETrainer
 from dataloader.dataloader import load_fraud_data, load_config
 from utils.model_saver import save_model, get_save_directory
 from utils.wandb_logger_lr import WandBLogger
 from utils.lr_scheduler import create_scheduler  # New scheduler utility
 from models.transformer_vae_model import TransformerVae
+from models.transformer_vqvae_model import TransformerVQVAE, vqvae_loss_function
 # Set random seeds for reproducibility
 SEED = 42
 random.seed(SEED)
@@ -24,7 +27,8 @@ torch.backends.cudnn.benchmark = False
 
 # Build the config path
 #config_path = "configs/conv_vae/fraud_conv_vae.config"
-config_path = "configs/conv_vae/normal_conv_vae.config"
+config_path = "configs/transformer_vqvae/fraud_transformer_vqvae.config"
+config_path = "configs/transformer_vqvae/normal_transformer_vqvae.config"
 #config_path = "configs/transformer_vae/fraud_transformer_vae.config"
 
 #config_path = "configs/conv_vae/fraud_conv_vae_test.config"
@@ -32,8 +36,9 @@ config_path = "configs/conv_vae/normal_conv_vae.config"
 # Load configuration
 config_parser = configparser.ConfigParser()
 config_parser.read(config_path)
-conv_vae_config = config_parser["Conv_VAE"]
+#onv_vae_config = config_parser["Conv_VAE"]
 #conv_vae_config = config_parser["Transformer_VAE"]
+conv_vae_config = config_parser["Transformer_VQVAE"]
 
 train_config = config_parser["Trainer"]
 
@@ -52,8 +57,9 @@ dataloaders = data['dataloaders']
 input_dim = data['input_dim']
 
 # Create model
-model = ConvVae(conv_vae_config)
+#model = ConvVae(conv_vae_config)
 #model = TransformerVae(conv_vae_config)
+model = TransformerVQVAE(conv_vae_config)
 
 print("Model parameters:")
 print_num_params(model)
@@ -70,10 +76,12 @@ optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = create_scheduler(train_config, optimizer)
 
 # Define loss function
-loss_fn = vae_loss_function
+# loss_fn = vae_loss_function
+loss_fn = vqvae_loss_function
 
 # Create trainer with scheduler
-trainer = VAETrainer(model, dataloaders, loss_fn, optimizer, scheduler)
+# trainer = VAETrainer(model, dataloaders, loss_fn, optimizer, scheduler)
+trainer = VQVAETrainer(model, dataloaders, loss_fn, optimizer, scheduler)
 
 # Create save directory
 save_dir = get_save_directory(config_path)
@@ -83,19 +91,24 @@ print(f"Models will be saved to: {save_dir}")
 best_val_loss = float('inf')
 train_losses, val_losses = [], []
 train_recon_losses, val_recon_losses = [], []
+train_vq_losses, val_vq_losses = [], []  # Added for VQ losses
 no_improve_count = 0  # Counter for early stopping
 
 try:
     # Training loop
     for epoch in range(1, num_epochs + 1):
         # Get both total loss and reconstruction loss
-        train_loss, train_recon_loss = trainer.train_epoch()
-        val_loss, val_recon_loss = trainer.validate_epoch()
+        # train_loss, train_recon_loss = trainer.train_epoch()
+        # val_loss, val_recon_loss = trainer.validate_epoch()
+        train_loss, train_recon_loss, train_vq_loss = trainer.train_epoch()
+        val_loss, val_recon_loss, val_vq_loss = trainer.validate_epoch()
         
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         train_recon_losses.append(train_recon_loss)
         val_recon_losses.append(val_recon_loss)
+        train_vq_losses.append(train_vq_loss)  # Added for VQ losses
+        val_vq_losses.append(val_vq_loss)      # Added for VQ losses
         
         # Get current learning rate
         current_lr = optimizer.param_groups[0]['lr']
@@ -113,9 +126,13 @@ try:
             wandb_logger.log_epoch(epoch, train_loss, val_loss)
         
         # Print progress with learning rate and reconstruction losses
+        # print(f"Epoch {epoch}/{num_epochs}: "
+        #       f"Train Loss = {train_loss:.6f} (Recon: {train_recon_loss:.6f}), "
+        #       f"Val Loss = {val_loss:.6f} (Recon: {val_recon_loss:.6f}), "
+        #       f"LR = {current_lr:.1e}")
         print(f"Epoch {epoch}/{num_epochs}: "
-              f"Train Loss = {train_loss:.6f} (Recon: {train_recon_loss:.6f}), "
-              f"Val Loss = {val_loss:.6f} (Recon: {val_recon_loss:.6f}), "
+              f"Train Loss = {train_loss:.6f} (Recon: {train_recon_loss:.6f}, VQ: {train_vq_loss:.6f}), "
+              f"Val Loss = {val_loss:.6f} (Recon: {val_recon_loss:.6f}, VQ: {val_vq_loss:.6f}), "
               f"LR = {current_lr:.1e}")
         
         # Update scheduler based on validation loss
@@ -137,10 +154,13 @@ try:
                 'val_loss': val_loss,
                 'train_recon_loss': train_recon_loss,
                 'val_recon_loss': val_recon_loss,
+                'train_vq_loss': train_vq_loss,  # Added for VQ losses
+                'val_vq_loss': val_vq_loss,      # Added for VQ losses
                 'learning_rate': current_lr
             }
             model_path = save_model(model, save_dir, 'best_model.pt', metadata)
-            print(f"New best validation loss: {val_loss:.6f} (Recon: {val_recon_loss:.6f})")
+            # print(f"New best validation loss: {val_loss:.6f} (Recon: {val_recon_loss:.6f})")
+            print(f"New best validation loss: {val_loss:.6f} (Recon: {val_recon_loss:.6f}, VQ: {val_vq_loss:.6f})")
             wandb_logger.log_model(model_path, metadata)
         else:
             no_improve_count += 1
@@ -159,6 +179,8 @@ try:
             'val_loss': val_losses[-1],
             'train_recon_loss': train_recon_losses[-1],
             'val_recon_loss': val_recon_losses[-1],
+            'train_vq_loss': train_vq_losses[-1],  # Added for VQ losses
+            'val_vq_loss': val_vq_losses[-1],      # Added for VQ losses 
             'learning_rate': optimizer.param_groups[0]['lr']
         }
         save_model(model, save_dir, 'final_model.pt', metadata)
@@ -174,6 +196,8 @@ except KeyboardInterrupt:
         'val_loss': val_losses[-1] if val_losses else None,
         'train_recon_loss': train_recon_losses[-1] if train_recon_losses else None,
         'val_recon_loss': val_recon_losses[-1] if val_recon_losses else None,
+        'train_vq_loss': train_vq_losses[-1] if train_vq_losses else None,  # Added for VQ losses
+        'val_vq_loss': val_vq_losses[-1] if val_vq_losses else None,        # Added for VQ losses
         'learning_rate': optimizer.param_groups[0]['lr'],
         'interrupted': True
     }

@@ -12,3 +12,5 @@ vae_dataset/
 __pycache__/
 amld_proj_new/evaluation_results/
 __pycache__/
+prompt.txt
+extract_repo.sh
