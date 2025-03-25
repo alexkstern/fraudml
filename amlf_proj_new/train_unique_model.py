@@ -11,7 +11,6 @@ from trainer.trainer_vae import VAETrainer  # Updated trainer
 from dataloader.dataloader import load_fraud_data, load_config
 from utils.model_saver import save_model, get_save_directory
 from utils.wandb_logger_lr import WandBLogger
-from utils.evaluation_utils import extract_recon_loss
 from utils.lr_scheduler import create_scheduler  # New scheduler utility
 from models.transformer_vae_model import TransformerVae
 # Set random seeds for reproducibility
@@ -24,8 +23,8 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 # Build the config path
-config_path = "configs/conv_vae/fraud_conv_vae.config"
-#config_path = "configs/conv_vae/normal_conv_vae.config"
+#config_path = "configs/conv_vae/fraud_conv_vae.config"
+config_path = "configs/conv_vae/normal_conv_vae.config"
 #config_path = "configs/transformer_vae/fraud_transformer_vae.config"
 
 #config_path = "configs/conv_vae/fraud_conv_vae_test.config"
@@ -83,28 +82,27 @@ print(f"Models will be saved to: {save_dir}")
 # Track best validation loss
 best_val_loss = float('inf')
 train_losses, val_losses = [], []
+train_recon_losses, val_recon_losses = [], []
 no_improve_count = 0  # Counter for early stopping
 
 try:
     # Training loop
     for epoch in range(1, num_epochs + 1):
-        train_loss = trainer.train_epoch()
-        val_loss = trainer.validate_epoch()
+        # Get both total loss and reconstruction loss
+        train_loss, train_recon_loss = trainer.train_epoch()
+        val_loss, val_recon_loss = trainer.validate_epoch()
         
         train_losses.append(train_loss)
         val_losses.append(val_loss)
+        train_recon_losses.append(train_recon_loss)
+        val_recon_losses.append(val_recon_loss)
         
         # Get current learning rate
         current_lr = optimizer.param_groups[0]['lr']
         
         # Log to WandB (if enabled)
         try:
-            train_batch = next(iter(dataloaders['train']))
-            val_batch = next(iter(dataloaders['val']))
-            train_recon_loss = extract_recon_loss(model, train_batch, trainer.device)
-            val_recon_loss = extract_recon_loss(model, val_batch, trainer.device)
-            
-            # Add learning rate to logging
+            # Now we have direct access to recon losses - no need for extract_recon_loss function
             wandb_logger.log_epoch(
                 epoch, train_loss, val_loss, 
                 train_recon_loss, val_recon_loss,
@@ -114,8 +112,11 @@ try:
             print(f"WandB logging error: {e}")
             wandb_logger.log_epoch(epoch, train_loss, val_loss)
         
-        # Print progress with learning rate
-        print(f"Epoch {epoch}/{num_epochs}: Train Loss = {train_loss:.4f}, Val Loss = {val_loss:.4f}, LR = {current_lr:.1e}")
+        # Print progress with learning rate and reconstruction losses
+        print(f"Epoch {epoch}/{num_epochs}: "
+              f"Train Loss = {train_loss:.6f} (Recon: {train_recon_loss:.6f}), "
+              f"Val Loss = {val_loss:.6f} (Recon: {val_recon_loss:.6f}), "
+              f"LR = {current_lr:.1e}")
         
         # Update scheduler based on validation loss
         if scheduler is not None:
@@ -133,15 +134,17 @@ try:
             metadata = {
                 'epoch': epoch, 
                 'train_loss': train_loss, 
-                'val_loss': val_loss, 
+                'val_loss': val_loss,
+                'train_recon_loss': train_recon_loss,
+                'val_recon_loss': val_recon_loss,
                 'learning_rate': current_lr
             }
             model_path = save_model(model, save_dir, 'best_model.pt', metadata)
-            print(f"New best validation loss: {val_loss:.4f}")
+            print(f"New best validation loss: {val_loss:.6f} (Recon: {val_recon_loss:.6f})")
             wandb_logger.log_model(model_path, metadata)
         else:
             no_improve_count += 1
-            print(f"No improvement for {no_improve_count} epochs. Best val loss: {best_val_loss:.4f}")
+            print(f"No improvement for {no_improve_count} epochs. Best val loss: {best_val_loss:.6f}")
             
             # Check if we should stop early
             if no_improve_count >= patience:
@@ -154,11 +157,13 @@ try:
             'epoch': epoch, 
             'train_loss': train_losses[-1], 
             'val_loss': val_losses[-1],
+            'train_recon_loss': train_recon_losses[-1],
+            'val_recon_loss': val_recon_losses[-1],
             'learning_rate': optimizer.param_groups[0]['lr']
         }
         save_model(model, save_dir, 'final_model.pt', metadata)
 
-    print(f"Training complete. Best validation loss: {best_val_loss:.4f}")
+    print(f"Training complete. Best validation loss: {best_val_loss:.6f}")
 
 except KeyboardInterrupt:
     print("\nTraining interrupted by user. Saving current state...")
@@ -167,6 +172,8 @@ except KeyboardInterrupt:
         'epoch': epoch,
         'train_loss': train_losses[-1] if train_losses else None,
         'val_loss': val_losses[-1] if val_losses else None,
+        'train_recon_loss': train_recon_losses[-1] if train_recon_losses else None,
+        'val_recon_loss': val_recon_losses[-1] if val_recon_losses else None,
         'learning_rate': optimizer.param_groups[0]['lr'],
         'interrupted': True
     }

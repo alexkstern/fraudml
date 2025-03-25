@@ -45,6 +45,10 @@ def train_model(config_path, model_class, config_section, loss_fn):
     print(f"Config section: {config_section}")
     print(f"{'='*80}\n")
     
+
+    # Determine the device (CPU or GPU)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
     # Load configuration
     config_parser = configparser.ConfigParser()
     config_parser.read(config_path)
@@ -66,6 +70,7 @@ def train_model(config_path, model_class, config_section, loss_fn):
     
     # Create model
     model = model_class(model_config)
+    model= model.to(device)
     print("Model parameters:")
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total number of trainable parameters: {num_params}")
@@ -80,7 +85,10 @@ def train_model(config_path, model_class, config_section, loss_fn):
     scheduler = create_scheduler(train_config, optimizer)
     
     # Create trainer with scheduler
-    trainer = VAETrainer(model, dataloaders, loss_fn, optimizer, scheduler)
+    if 'vqvae' in model_class.__name__.lower():
+        trainer = VQVAETrainer(model, dataloaders, loss_fn, optimizer, scheduler,device=device)
+    else:
+        trainer = VAETrainer(model, dataloaders, loss_fn, optimizer, scheduler,device=device)
     
     # Create save directory
     save_dir = get_save_directory(config_path)
@@ -89,28 +97,30 @@ def train_model(config_path, model_class, config_section, loss_fn):
     # Track best validation loss
     best_val_loss = float('inf')
     train_losses, val_losses = [], []
+    train_recon_losses, val_recon_losses = [], []
     no_improve_count = 0  # Counter for early stopping
     
     try:
         # Training loop
         for epoch in range(1, num_epochs + 1):
-            train_loss = trainer.train_epoch()
-            val_loss = trainer.validate_epoch()
+            # Training epoch - handle different return values between VAE and VQVAE
+            if 'vqvae' in model_class.__name__.lower():
+                train_loss, train_recon_loss, train_vq_loss = trainer.train_epoch()
+                val_loss, val_recon_loss, val_vq_loss = trainer.validate_epoch()
+            else:
+                train_loss, train_recon_loss = trainer.train_epoch()
+                val_loss, val_recon_loss = trainer.validate_epoch()
             
             train_losses.append(train_loss)
             val_losses.append(val_loss)
+            train_recon_losses.append(train_recon_loss)
+            val_recon_losses.append(val_recon_loss)
             
             # Get current learning rate
             current_lr = optimizer.param_groups[0]['lr']
             
             # Log to WandB (if enabled)
             try:
-                train_batch = next(iter(dataloaders['train']))
-                val_batch = next(iter(dataloaders['val']))
-                train_recon_loss = extract_recon_loss(model, train_batch, trainer.device)
-                val_recon_loss = extract_recon_loss(model, val_batch, trainer.device)
-                
-                # Add learning rate to logging
                 wandb_logger.log_epoch(
                     epoch, train_loss, val_loss, 
                     train_recon_loss, val_recon_loss,
@@ -120,8 +130,17 @@ def train_model(config_path, model_class, config_section, loss_fn):
                 print(f"WandB logging error: {e}")
                 wandb_logger.log_epoch(epoch, train_loss, val_loss)
             
-            # Print progress with learning rate
-            print(f"Epoch {epoch}/{num_epochs}: Train Loss = {train_loss:.4f}, Val Loss = {val_loss:.4f}, LR = {current_lr:.1e}")
+            # Print progress with learning rate and reconstruction loss
+            if 'vqvae' in model_class.__name__.lower():
+                print(f"Epoch {epoch}/{num_epochs}: "
+                      f"Train Loss = {train_loss:.6f} (Recon: {train_recon_loss:.6f}, VQ: {train_vq_loss:.6f}), "
+                      f"Val Loss = {val_loss:.6f} (Recon: {val_recon_loss:.6f}, VQ: {val_vq_loss:.6f}), "
+                      f"LR = {current_lr:.1e}")
+            else:
+                print(f"Epoch {epoch}/{num_epochs}: "
+                      f"Train Loss = {train_loss:.6f} (Recon: {train_recon_loss:.6f}), "
+                      f"Val Loss = {val_loss:.6f} (Recon: {val_recon_loss:.6f}), "
+                      f"LR = {current_lr:.1e}")
             
             # Update scheduler based on validation loss
             if scheduler is not None:
@@ -139,17 +158,19 @@ def train_model(config_path, model_class, config_section, loss_fn):
                 metadata = {
                     'epoch': epoch, 
                     'train_loss': train_loss, 
-                    'val_loss': val_loss, 
+                    'val_loss': val_loss,
+                    'train_recon_loss': train_recon_loss,
+                    'val_recon_loss': val_recon_loss,
                     'learning_rate': current_lr,
                     'model_class': model_class.__name__,
                     'config_path': config_path
                 }
                 model_path = save_model(model, save_dir, 'best_model.pt', metadata)
-                print(f"New best validation loss: {val_loss:.4f}")
+                print(f"New best validation loss: {val_loss:.6f}")
                 wandb_logger.log_model(model_path, metadata)
             else:
                 no_improve_count += 1
-                print(f"No improvement for {no_improve_count} epochs. Best val loss: {best_val_loss:.4f}")
+                print(f"No improvement for {no_improve_count} epochs. Best val loss: {best_val_loss:.6f}")
                 
                 # Check if we should stop early
                 if no_improve_count >= patience:
@@ -162,18 +183,21 @@ def train_model(config_path, model_class, config_section, loss_fn):
                 'epoch': epoch, 
                 'train_loss': train_losses[-1], 
                 'val_loss': val_losses[-1],
+                'train_recon_loss': train_recon_losses[-1],
+                'val_recon_loss': val_recon_losses[-1],
                 'learning_rate': optimizer.param_groups[0]['lr'],
                 'model_class': model_class.__name__,
                 'config_path': config_path
             }
             save_model(model, save_dir, 'final_model.pt', metadata)
     
-        print(f"Training complete. Best validation loss: {best_val_loss:.4f}")
+        print(f"Training complete. Best validation loss: {best_val_loss:.6f}")
         return {
             'config_path': config_path,
             'model_class': model_class.__name__,
             'best_val_loss': best_val_loss,
             'final_val_loss': val_losses[-1] if val_losses else None,
+            'best_recon_loss': val_recon_losses[val_losses.index(best_val_loss)],
             'status': 'completed'
         }
     
@@ -183,6 +207,8 @@ def train_model(config_path, model_class, config_section, loss_fn):
             'epoch': epoch,
             'train_loss': train_losses[-1] if train_losses else None,
             'val_loss': val_losses[-1] if val_losses else None,
+            'train_recon_loss': train_recon_losses[-1] if train_recon_losses else None,
+            'val_recon_loss': val_recon_losses[-1] if val_recon_losses else None,
             'learning_rate': optimizer.param_groups[0]['lr'],
             'model_class': model_class.__name__,
             'config_path': config_path,
@@ -319,23 +345,29 @@ if __name__ == "__main__":
     print(f"TRAINING COMPLETE - Total time: {int(hours)}h {int(minutes)}m {int(seconds)}s")
     print("="*100)
     
-    print(f"\n{'Model Type':<20} {'Class':<10} {'Best Val Loss':<15} {'Status':<10}")
-    print("-"*60)
+    print(f"\n{'Model Type':<20} {'Class':<10} {'Best Val Loss':<15} {'Best Recon Loss':<15} {'Status':<10}")
+    print("-"*75)
     
     for result in results:
-        model_type = result['full_model_type']
-        class_type = result['class_type']
-        best_val_loss = result.get('best_val_loss', float('inf'))
-        status = result.get('status', 'Unknown')
+            model_type = result['full_model_type']
+            class_type = result['class_type']
+            best_val_loss = result.get('best_val_loss', float('inf'))
+            best_recon_loss = result.get('best_recon_loss', float('inf'))
+            status = result.get('status', 'Unknown')
+            
+            # Format the loss values
+            if best_val_loss == float('inf'):
+                val_loss_str = 'N/A'
+            else:
+                val_loss_str = f"{best_val_loss:.6f}"
+                
+            if best_recon_loss == float('inf'):
+                recon_loss_str = 'N/A'
+            else:
+                recon_loss_str = f"{best_recon_loss:.6f}"
+            
+            print(f"{model_type:<20} {class_type:<10} {val_loss_str:<15} {recon_loss_str:<15} {status:<10}")
         
-        # Format the loss value
-        if best_val_loss == float('inf'):
-            loss_str = 'N/A'
-        else:
-            loss_str = f"{best_val_loss:.6f}"
-        
-        print(f"{model_type:<20} {class_type:<10} {loss_str:<15} {status:<10}")
-    
     # Save results to file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_file = f"training_results_{timestamp}.json"
