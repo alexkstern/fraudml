@@ -10,6 +10,5 @@ __pycache__/
 wandb/
 vae_dataset/
 __pycache__/
-transformer_vqvae/
 amld_proj_new/evaluation_results/
 __pycache__/
