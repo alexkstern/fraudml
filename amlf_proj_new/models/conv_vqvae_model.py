@@ -165,7 +165,8 @@ class ConvVQVAE(nn.Module):
         x = F.relu(self.dec_deconv1(x))
         x = F.relu(self.dec_deconv2(x))
         x = F.relu(self.dec_deconv3(x))
-        x = torch.sigmoid(self.dec_final(x))  # final activation to [0, 1]
+        #x = torch.sigmoid(self.dec_final(x))  # final activation to [0, 1]
+        x= self.dec_final(x)
         return x
     
     def forward(self, x):

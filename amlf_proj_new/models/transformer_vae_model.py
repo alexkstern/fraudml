@@ -126,8 +126,7 @@ class TransformerVae(nn.Module):
         x = self.output_layer(x)  # (batch, input_dim, 1)
         # Transpose to (batch, 1, input_dim) for consistency with input
         x = x.transpose(1, 2)
-        # Final activation (e.g., sigmoid to produce outputs in [0, 1])
-        x = torch.sigmoid(x)
+
         return x
 
     def forward(self, x):

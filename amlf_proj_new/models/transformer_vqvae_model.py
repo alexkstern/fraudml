@@ -147,7 +147,6 @@ class TransformerVQVAE(nn.Module):
         x = self.transformer_decoder(x)         # -> (batch, input_dim, d_model)
         x = self.output_layer(x)                # -> (batch, input_dim, 1)
         x = x.transpose(1, 2)                   # -> (batch, 1, input_dim)
-        x = torch.sigmoid(x)                    # constrain outputs to [0, 1]
         return x
     
     def forward(self, x):

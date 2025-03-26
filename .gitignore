@@ -14,3 +14,6 @@ amld_proj_new/evaluation_results/
 __pycache__/
 prompt.txt
 extract_repo.sh
+evaluation_results/
+__pycache__/
+evaluation_results_independent/
