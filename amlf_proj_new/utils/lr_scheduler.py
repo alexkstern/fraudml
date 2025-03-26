@@ -21,8 +21,8 @@ def create_scheduler(config, optimizer):
     
     if scheduler_type == 'plateau':
         # Defaults: patience=5, factor=0.5, min_lr=1e-6
-        patience = config.getint('scheduler_patience', fallback=20)
-        factor = config.getfloat('scheduler_factor', fallback=0.5)
+        patience = config.getint('scheduler_patience', fallback=10)
+        factor = config.getfloat('scheduler_factor', fallback=0.8)
         min_lr = config.getfloat('scheduler_min_lr', fallback=1e-6)
         return ReduceLROnPlateau(
             optimizer, 
@@ -41,7 +41,7 @@ def create_scheduler(config, optimizer):
     elif scheduler_type == 'cosine':
         # CosineAnnealingLR: Defaults T_max=50, eta_min=0
         T_max = config.getint('scheduler_T_max', fallback=25)
-        eta_min = config.getfloat('scheduler_eta_min', fallback=0)
+        eta_min = config.getfloat('scheduler_eta_min', fallback=0.0002)
         return CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
     elif scheduler_type == 'cosinewarm':
         # CosineAnnealingWarmRestarts: Defaults T_0=10, T_mult=1

@@ -1,0 +1,87 @@
+{
+  "results": [
+    {
+      "config_path": "configs/conv_vae/fraud_conv_vae.config",
+      "model_class": "ConvVae",
+      "best_val_loss": 235.54478681848406,
+      "status": "interrupted",
+      "arch_type": "vae",
+      "model_type": "conv",
+      "full_model_type": "conv_vae",
+      "class_type": "fraud"
+    },
+    {
+      "config_path": "configs/conv_vae/normal_conv_vae.config",
+      "model_class": "ConvVae",
+      "best_val_loss": 28.48967362467448,
+      "status": "interrupted",
+      "arch_type": "vae",
+      "model_type": "conv",
+      "full_model_type": "conv_vae",
+      "class_type": "normal"
+    },
+    {
+      "config_path": "configs/transformer_vae/fraud_transformer_vae.config",
+      "model_class": "TransformerVae",
+      "error": "DataLoader worker (pid(s) 1792) exited unexpectedly",
+      "status": "failed",
+      "arch_type": "vae",
+      "model_type": "transformer",
+      "full_model_type": "transformer_vae",
+      "class_type": "fraud"
+    },
+    {
+      "config_path": "configs/transformer_vae/normal_transformer_vae.config",
+      "model_class": "TransformerVae",
+      "best_val_loss": 32.53874816894531,
+      "status": "interrupted",
+      "arch_type": "vae",
+      "model_type": "transformer",
+      "full_model_type": "transformer_vae",
+      "class_type": "normal"
+    },
+    {
+      "config_path": "configs/conv_vqvae/fraud_conv_vqvae.config",
+      "model_class": "ConvVQVAE",
+      "best_val_loss": 709.5572016289893,
+      "final_val_loss": 579453.4255319149,
+      "best_recon_loss": 708.0263048537234,
+      "status": "completed",
+      "arch_type": "vqvae",
+      "model_type": "conv",
+      "full_model_type": "conv_vqvae",
+      "class_type": "fraud"
+    },
+    {
+      "config_path": "configs/conv_vqvae/normal_conv_vqvae.config",
+      "model_class": "ConvVQVAE",
+      "best_val_loss": 31.54494970703125,
+      "status": "interrupted",
+      "arch_type": "vqvae",
+      "model_type": "conv",
+      "full_model_type": "conv_vqvae",
+      "class_type": "normal"
+    },
+    {
+      "config_path": "configs/transformer_vqvae/fraud_transformer_vqvae.config",
+      "model_class": "TransformerVQVAE",
+      "best_val_loss": 174.40876932347075,
+      "status": "interrupted",
+      "arch_type": "vqvae",
+      "model_type": "transformer",
+      "full_model_type": "transformer_vqvae",
+      "class_type": "fraud"
+    },
+    {
+      "config_path": "configs/transformer_vqvae/normal_transformer_vqvae.config",
+      "model_class": "TransformerVQVAE",
+      "best_val_loss": 4.283597661336263,
+      "status": "interrupted",
+      "arch_type": "vqvae",
+      "model_type": "transformer",
+      "full_model_type": "transformer_vqvae",
+      "class_type": "normal"
+    }
+  ],
+  "total_time_seconds": 507.2965121269226
+}
