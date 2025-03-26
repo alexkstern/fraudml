@@ -138,6 +138,8 @@ class IndependentModelEvaluator:
 
 
     # --- MODIFIED find_best_threshold ---
+ # Only modifying the relevant parts of your code
+
     def find_best_threshold(self, errors, true_labels):
         """
         Find the best classification threshold based on maximizing F1-score on the provided errors/labels.
@@ -182,23 +184,13 @@ class IndependentModelEvaluator:
                 best_threshold = t
 
         if best_f1 <= 0:
-             print(f"Warning: Could not find a threshold with F1 > 0. Max F1 was {best_f1:.4f}. Using median error {best_threshold:.6f} as fallback threshold.")
-             # Optional fallback: use the mean+2std heuristic if F1 is zero
-             # if self.class_type == 'normal':
-             #     in_dist_mask = (true_labels == 0)
-             #     if np.any(in_dist_mask): best_threshold = errors[in_dist_mask].mean() + 2 * errors[in_dist_mask].std()
-             # else:
-             #     in_dist_mask = (true_labels == 1)
-             #     if np.any(in_dist_mask): best_threshold = errors[in_dist_mask].mean() + 2 * errors[in_dist_mask].std()
-             # print(f"Falling back to mean+2std heuristic threshold: {best_threshold:.6f}")
+            print(f"Warning: Could not find a threshold with F1 > 0. Max F1 was {best_f1:.4f}. Using median error {best_threshold:.6f} as fallback threshold.")
 
-
-        print(f"Best threshold found: {best_threshold:.6f} with F1-score: {best_f1:.4f}")
-        # You might want to plot F1 vs Threshold for debugging
-        # plt.figure(); plt.plot(thresholds, f1_scores); plt.xlabel('Threshold'); plt.ylabel('F1 Score'); plt.title(f'{self.model_type} ({self.class_type}) F1 vs Threshold'); plt.grid(True); plt.savefig(f'f1_vs_threshold_{self.model_type}_{self.class_type}.png'); plt.close()
-
+        # Modified to include more detailed printing
+        print(f"Best threshold found: {best_threshold:.6f} with Max F1-score (training+val): {best_f1:.4f}")
 
         return best_threshold, best_f1
+
     # --- END MODIFIED find_best_threshold ---
 
 
@@ -309,6 +301,11 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
     all_evaluations = {}
     compare_results = []
 
+    # Create a summary table for all models
+    print("\n----- Model Threshold and F1 Score Summary -----")
+    print(f"{'Model Type':<20} | {'Class':<6} | {'Max F1 (train+val)':<17} | {'Threshold':<10} | {'Test F1':<8}")
+    print("-" * 75)
+
     for model_config in model_configs:
         try:
             print(f"\n----- Evaluating {model_config['type']} ({model_config['class_type']}) -----")
@@ -339,7 +336,6 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
                  print("Skipping evaluation for this model due to no validation errors.")
                  continue
 
-
             combined_errors = np.concatenate([train_errors, val_errors])
             combined_labels = np.concatenate([train_labels, val_labels])
 
@@ -356,7 +352,6 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
                  print("Skipping test evaluation for this model due to no test errors.")
                  continue
 
-
             # Step 4: Compute metrics using the found best_threshold
             test_metrics = evaluator.compute_metrics(test_errors, test_labels, best_threshold)
 
@@ -372,6 +367,8 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
             print(f"True Normal  {test_metrics['confusion_matrix'][0,0]:<11d} {test_metrics['confusion_matrix'][0,1]:<10d}")
             print(f"True Fraud   {test_metrics['confusion_matrix'][1,0]:<11d} {test_metrics['confusion_matrix'][1,1]:<10d}")
 
+            # Add to summary table row
+            print(f"{model_config['type']:<20} | {model_config['class_type']:<6} | {best_f1_on_val:<17.4f} | {best_threshold:<10.6f} | {test_metrics['f1_score']:<8.4f}")
 
             # Plot results
             test_results = {'errors': test_errors, 'true_labels': test_labels}
@@ -379,7 +376,9 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
 
             all_evaluations[model_id] = {
                 'results': test_results,
-                'metrics': test_metrics
+                'metrics': test_metrics,
+                'train_val_f1': best_f1_on_val,  # Store the F1 from training+validation
+                'threshold': best_threshold
             }
 
             # Store simplified results for comparison table
@@ -392,10 +391,11 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
                 'precision': test_metrics['precision'],
                 'recall': test_metrics['recall'],
                 'f1_score': test_metrics['f1_score'],
-                'accuracy': test_metrics['accuracy']
+                'accuracy': test_metrics['accuracy'],
+                'train_val_f1': best_f1_on_val,
+                'threshold': best_threshold
             }
             compare_results.append(row)
-
 
         except Exception as e:
             print(f"Error evaluating {model_config.get('type', 'N/A')}_{model_config.get('class_type', 'N/A')}: {e}")
@@ -403,15 +403,15 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
             traceback.print_exc()
 
     # --- Comparison Table and Plot (adjust print formatting) ---
-    print("\n----- Model Comparison -----")
-    print(f"{'Model Type':<20} | {'Class':<6} | {'Precision':<9} | {'Recall':<8} | {'F1 Score':<10} | {'Accuracy':<8}")
-    print("-" * 75)
+    print("\n----- Model Comparison Summary -----")
+    print(f"{'Model Type':<20} | {'Class':<6} | {'Max F1 (train+val)':<17} | {'Threshold':<10} | {'Test F1':<8} | {'Precision':<9} | {'Recall':<8} | {'Accuracy':<8}")
+    print("-" * 95)
 
     # Sort for consistent table output
     compare_results.sort(key=lambda x: (x['model_type'], x['class_type']))
 
     for row in compare_results:
-         print(f"{row['model_type']:<20} | {row['class_type']:<6} | {row['precision']:<9.4f} | {row['recall']:<8.4f} | {row['f1_score']:<10.4f} | {row['accuracy']:<8.4f}")
+        print(f"{row['model_type']:<20} | {row['class_type']:<6} | {row['train_val_f1']:<17.4f} | {row['threshold']:<10.6f} | {row['f1_score']:<8.4f} | {row['precision']:<9.4f} | {row['recall']:<8.4f} | {row['accuracy']:<8.4f}")
 
     # Save comparison results to CSV
     import csv
@@ -419,7 +419,7 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
     comparison_path = os.path.join(base_save_dir, "model_comparison.csv")
     if compare_results: # Only write if there are results
         with open(comparison_path, 'w', newline='') as csvfile:
-            fieldnames = ['model_type', 'class_type', 'precision', 'recall', 'f1_score', 'accuracy']
+            fieldnames = ['model_type', 'class_type', 'train_val_f1', 'threshold', 'precision', 'recall', 'f1_score', 'accuracy']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(compare_results)
@@ -427,58 +427,126 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
     else:
         print("\nNo evaluation results to save to CSV.")
 
-    # Create comparison plot (adjust if needed based on new results)
-    # ... (plotting code remains the same, should work with compare_results) ...
+    # Create comparison plot - now with two plots, one for training+val F1 and one for test F1
     if compare_results:
-        plt.figure(figsize=(12, 7)) # Slightly wider plot
-
-        # Prepare data for plotting (F1 scores)
+        # Figure 1: Compare train+val F1 with test F1 by model
+        plt.figure(figsize=(14, 7))
+        
+        # Prepare data for plotting
         model_names = sorted(list(set(r['model_type'] for r in compare_results)))
         x = np.arange(len(model_names))
-        width = 0.35
-
-        normal_f1 = []
-        fraud_f1 = []
+        width = 0.2  # narrower bars to fit more data
+        
+        # Extract F1 scores
+        normal_train_val_f1 = []
+        normal_test_f1 = []
+        fraud_train_val_f1 = []
+        fraud_test_f1 = []
+        
         for name in model_names:
-             norm_res = next((r['f1_score'] for r in compare_results if r['model_type'] == name and r['class_type'] == 'normal'), 0)
-             fraud_res = next((r['f1_score'] for r in compare_results if r['model_type'] == name and r['class_type'] == 'fraud'), 0)
-             normal_f1.append(norm_res)
-             fraud_f1.append(fraud_res)
-
-        rects1 = plt.bar(x - width/2, normal_f1, width, label='Normal Model (Detects Fraud)')
-        rects2 = plt.bar(x + width/2, fraud_f1, width, label='Fraud Model (Detects Fraud)')
-
+            normal_row = next((r for r in compare_results if r['model_type'] == name and r['class_type'] == 'normal'), None)
+            fraud_row = next((r for r in compare_results if r['model_type'] == name and r['class_type'] == 'fraud'), None)
+            
+            normal_train_val_f1.append(normal_row['train_val_f1'] if normal_row else 0)
+            normal_test_f1.append(normal_row['f1_score'] if normal_row else 0)
+            fraud_train_val_f1.append(fraud_row['train_val_f1'] if fraud_row else 0)
+            fraud_test_f1.append(fraud_row['f1_score'] if fraud_row else 0)
+        
+        # Plot the four bar sets
+        plt.bar(x - 1.5*width, normal_train_val_f1, width, label='Normal Model (Train+Val F1)')
+        plt.bar(x - 0.5*width, normal_test_f1, width, label='Normal Model (Test F1)')
+        plt.bar(x + 0.5*width, fraud_train_val_f1, width, label='Fraud Model (Train+Val F1)')
+        plt.bar(x + 1.5*width, fraud_test_f1, width, label='Fraud Model (Test F1)')
+        
+        plt.ylabel('F1 Score')
+        plt.title('Comparison of Training+Validation F1 vs Test F1 by Model Type')
+        plt.xticks(x, model_names, rotation=45, ha="right")
+        plt.ylim(0, 1)
+        plt.legend()
+        plt.grid(True, axis='y', alpha=0.3)
+        plt.tight_layout()
+        
+        f1_comparison_path = os.path.join(base_save_dir, "model_train_test_f1_comparison.png")
+        plt.savefig(f1_comparison_path)
+        plt.close()
+        print(f"F1 comparison plot saved to {f1_comparison_path}")
+        
+        # Original F1 plot for consistency
+        plt.figure(figsize=(12, 7))
+        rects1 = plt.bar(x - width/2, normal_test_f1, width, label='Normal Model (Test F1)')
+        rects2 = plt.bar(x + width/2, fraud_test_f1, width, label='Fraud Model (Test F1)')
+        
         plt.ylabel('F1 Score (Fraud Detection)')
         plt.title('Model F1 Scores on Test Set')
         plt.xticks(x, model_names, rotation=45, ha="right")
-        plt.ylim(0, 1) # F1 score is between 0 and 1
+        plt.ylim(0, 1)
         plt.legend()
         plt.grid(True, axis='y', alpha=0.3)
-        plt.tight_layout() # Adjust layout
-
-        plot_path = os.path.join(base_save_dir, "model_comparison_f1.png")
-        plt.savefig(plot_path)
+        plt.tight_layout()
+        
+        original_plot_path = os.path.join(base_save_dir, "model_comparison_f1.png")
+        plt.savefig(original_plot_path)
         plt.close()
-        print(f"Comparison plot saved to {plot_path}")
-
+        print(f"Original comparison plot saved to {original_plot_path}")
 
     return all_evaluations, compare_results
-
 
 # --- main function remains the same ---
 def main():
     classifier_config_path = "configs/classifier/classifier.config"
     # Update paths if needed, e.g., if you retrained fraud models
     model_configs = [
-        {'type': 'conv_vae','class_type': 'normal','model_path': "./saved_models/conv_vae/normal_conv_vae/20250325_224451/best_model.pt",'config': "configs/conv_vae/normal_conv_vae.config",},
-        {'type': 'conv_vae','class_type': 'fraud','model_path': "./saved_models/conv_vae/fraud_conv_vae/20250326_165119/final_model.pt", 'config': "configs/conv_vae/fraud_conv_vae.config",}, # Using final model from your log path
-        {'type': 'transformer_vae','class_type': 'normal','model_path': "./saved_models/transformer_vae/normal_transformer_vae/20250325_225743/best_model.pt",'config': "configs/transformer_vae/normal_transformer_vae.config",},
-        {'type': 'transformer_vae','class_type': 'fraud','model_path': "./saved_models/transformer_vae/fraud_transformer_vae/20250325_225535/best_model.pt",'config': "configs/transformer_vae/fraud_transformer_vae.config",},
-        {'type': 'conv_vqvae','class_type': 'normal','model_path': "./saved_models/conv_vqvae/normal_conv_vqvae/20250325_232341/best_model.pt",'config': "configs/conv_vqvae/normal_conv_vqvae.config",},
-        {'type': 'conv_vqvae','class_type': 'fraud','model_path': "./saved_models/conv_vqvae/fraud_conv_vqvae/20250325_232313/best_model.pt",'config': "configs/conv_vqvae/fraud_conv_vqvae.config",},
-        {'type': 'transformer_vqvae','class_type': 'normal','model_path': "./saved_models/transformer_vqvae/normal_transformer_vqvae/20250325_233853/best_model.pt",'config': "configs/transformer_vqvae/normal_transformer_vqvae.config",},
-        {'type': 'transformer_vqvae','class_type': 'fraud','model_path': "./saved_models/transformer_vqvae/fraud_transformer_vqvae/20250325_233638/best_model.pt",'config': "configs/transformer_vqvae/fraud_transformer_vqvae.config",}
+        {
+            'type': 'conv_vae',
+            'class_type': 'normal',
+            'model_path': "./saved_models/conv_vae/normal_conv_vae/20250326_193247/best_model.pt",
+            'config': "configs/conv_vae/normal_conv_vae.config",
+        },
+        {
+            'type': 'conv_vae',
+            'class_type': 'fraud',
+            'model_path': "./saved_models/conv_vae/fraud_conv_vae/20250326_193004/best_model.pt", 
+            'config': "configs/conv_vae/fraud_conv_vae.config",
+        },
+        {
+            'type': 'transformer_vae',
+            'class_type': 'normal',
+            'model_path': "./saved_models/transformer_vae/normal_transformer_vae/20250326_194307/best_model.pt",
+            'config': "configs/transformer_vae/normal_transformer_vae.config",
+        },
+        {
+            'type': 'transformer_vae',
+            'class_type': 'fraud',
+            'model_path': "./saved_models/transformer_vae/fraud_transformer_vae/20250326_193957/best_model.pt",
+            'config': "configs/transformer_vae/fraud_transformer_vae.config",
+        },
+        {
+            'type': 'conv_vqvae',
+            'class_type': 'normal',
+            'model_path': "./saved_models/conv_vqvae/normal_conv_vqvae/20250326_195131/best_model.pt",
+            'config': "configs/conv_vqvae/normal_conv_vqvae.config",
+        },
+        {
+            'type': 'conv_vqvae',
+            'class_type': 'fraud',
+            'model_path': "./saved_models/conv_vqvae/fraud_conv_vqvae/20250326_195012/best_model.pt",
+            'config': "configs/conv_vqvae/fraud_conv_vqvae.config",
+        },
+        {
+            'type': 'transformer_vqvae',
+            'class_type': 'normal',
+            'model_path': "./saved_models/transformer_vqvae/normal_transformer_vqvae/20250326_195739/best_model.pt",
+            'config': "configs/transformer_vqvae/normal_transformer_vqvae.config",
+        },
+        {
+            'type': 'transformer_vqvae',
+            'class_type': 'fraud',
+            'model_path': "./saved_models/transformer_vqvae/fraud_transformer_vqvae/20250326_195426/best_model.pt",
+            'config': "configs/transformer_vqvae/fraud_transformer_vqvae.config",
+        }
     ]
+
+
 
     print(f"Evaluating {len(model_configs)} models:")
     for config in model_configs:
