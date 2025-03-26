@@ -1,0 +1,14 @@
+====================================================================================================
+TRAINING COMPLETE - Total time: 1h 9m 23s
+====================================================================================================
+
+Model Type           Class      Best Val Loss   Best Recon Loss Status    
+---------------------------------------------------------------------------
+conv_vae             fraud      994.585688      993.689370      completed 
+conv_vae             normal     31.597499       30.435062       completed 
+transformer_vae      fraud      994.292221      993.548329      completed 
+transformer_vae      normal     31.479816       30.398098       completed 
+conv_vqvae           fraud      1067.821019     1050.687458     completed 
+conv_vqvae           normal     29.868754       29.287206       completed 
+transformer_vqvae    fraud      983.306267      983.296210      completed 
+transformer_vqvae    normal     21.911920       21.909147       completed 
