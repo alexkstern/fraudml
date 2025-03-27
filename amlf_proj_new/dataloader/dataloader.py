@@ -1,3 +1,5 @@
+
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
@@ -54,40 +56,42 @@ class CreditCardFraudDataset(Dataset):
     """
     Dataset class for credit card fraud detection.
     
-    This class handles loading data from Hugging Face datasets and preparing it for VAE training.
-    It performs normalization on numerical features based on training data statistics.
-    Optionally, if conv=True, it will later be collated to include a channel dimension.
+    This class handles loading data from Hugging Face datasets and preparing it for model training.
+    The data is pre-normalized, so no additional normalization is performed.
     """
     def __init__(self, 
                  dataset=None,
-                 dataset_name: str = "stanpony/european_credit_card_fraud_dataset",
+                 dataset_name: str = "stanpony/full_european_credit_card_fraud_dataset",
                  split: str = 'train',
                  exclude_cols: List[str] = ['original_index', 'Class'],
-                 normalize_cols: List[str] = ['Time', 'Amount'],
                  batch_size: int = 64,
                  shuffle: bool = True,
                  num_workers: int = 4,
-                 normalize: bool = True,
-                 stats_dict: Dict = None,
                  device: str = None,
                  class_filter: Optional[int] = None,
-                 conv: bool = False):   # New parameter to indicate conv mode
+                 conv: bool = False):
         """
         Initialize the dataset.
         
         Args:
-            conv: If True, then during batching an extra channel dimension will be added.
-            (Other parameters as before)
+            dataset: Pre-loaded dataset (optional)
+            dataset_name: Hugging Face dataset name
+            split: Dataset split ('train', 'validation', or 'test')
+            exclude_cols: Columns to exclude from feature set
+            batch_size: Batch size for DataLoader
+            shuffle: Whether to shuffle data
+            num_workers: Number of workers for DataLoader
+            device: Device to load tensors to
+            class_filter: Filter to specific class (0=normal, 1=fraud)
+            conv: If True, add channel dimension to tensors
         """
         self.split = split
         self.exclude_cols = exclude_cols
-        self.normalize_cols = normalize_cols
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.num_workers = num_workers
-        self.normalize = normalize
         self.class_filter = class_filter
-        self.conv = conv  # Store the conv flag
+        self.conv = conv
         
         if device is None:
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -108,33 +112,6 @@ class CreditCardFraudDataset(Dataset):
             
         # Get all feature columns (excluding the ones in exclude_cols)
         self.feature_cols = [col for col in self.dataset.column_names if col not in exclude_cols]
-        
-        # Calculate or use provided normalization statistics
-        self.stats_dict = stats_dict
-        if self.normalize and self.stats_dict is None:
-            self.stats_dict = self._calculate_normalization_stats()
-    
-    def _calculate_normalization_stats(self) -> Dict:
-        """
-        Calculate normalization statistics (mean and std) for specified columns.
-        """
-        stats = {}
-        for col in self.normalize_cols:
-            if col in self.dataset.column_names:
-                values = np.array(self.dataset[col])
-                stats[col] = {
-                    'mean': float(np.mean(values)),
-                    'std': float(np.std(values))
-                }
-        return stats
-    
-    def _normalize_value(self, value: float, col: str) -> float:
-        """
-        Normalize a single value.
-        """
-        if col in self.stats_dict:
-            return (value - self.stats_dict[col]['mean']) / self.stats_dict[col]['std']
-        return value
     
     def __len__(self) -> int:
         """Return the number of samples."""
@@ -145,8 +122,6 @@ class CreditCardFraudDataset(Dataset):
         features = []
         for col in self.feature_cols:
             value = sample[col]
-            if self.normalize and col in self.normalize_cols:
-                value = self._normalize_value(value, col)
             # If the value is a list or array, extend the features list with its elements
             if isinstance(value, (list, np.ndarray)):
                 # Ensure it's a flat list
@@ -158,8 +133,6 @@ class CreditCardFraudDataset(Dataset):
         # Return a 1D tensor
         features_tensor = torch.tensor(features, dtype=torch.float32)
         return features_tensor
-
-
     
     def get_dataloader(self) -> DataLoader:
         """
@@ -173,7 +146,6 @@ class CreditCardFraudDataset(Dataset):
             if self.conv:
                 data = data.view(data.size(0), 1, -1)  # Use view instead of unsqueeze
             return data
-
         
         return DataLoader(
             self,
@@ -199,17 +171,15 @@ class FraudDataModule:
                  train_dataset=None,
                  val_dataset=None,
                  test_dataset=None,
-                 dataset_name: str = "stanpony/european_credit_card_fraud_dataset",
+                 dataset_name: str = "stanpony/full_european_credit_card_fraud_dataset",
                  exclude_cols: List[str] = ['original_index', 'Class'],
-                 normalize_cols: List[str] = ['Time', 'Amount'],
                  batch_size: int = 64,
                  shuffle: bool = True,
                  num_workers: int = 4,
-                 normalize: bool = True,
                  device: str = None,
                  config_path: str = None,
                  class_filter: Optional[int] = None,
-                 conv: bool = False):   # New conv flag
+                 conv: bool = False):
         """
         Initialize the data module.
         """
@@ -220,21 +190,17 @@ class FraudDataModule:
             if dataloader_config:
                 dataset_name = dataloader_config.get('dataset_name', dataset_name)
                 exclude_cols = dataloader_config.get('exclude_cols', exclude_cols)
-                normalize_cols = dataloader_config.get('normalize_cols', normalize_cols)
                 batch_size = dataloader_config.get('batch_size', batch_size)
                 shuffle = dataloader_config.get('shuffle', shuffle)
                 num_workers = dataloader_config.get('num_workers', num_workers)
-                normalize = dataloader_config.get('normalize', normalize)
                 class_filter = dataloader_config.get('class_filter', class_filter)
                 conv = dataloader_config.get('conv', conv)
         
         self.dataset_name = dataset_name
         self.exclude_cols = exclude_cols
-        self.normalize_cols = normalize_cols
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.num_workers = num_workers
-        self.normalize = normalize
         self.device = device if device else ('cuda' if torch.cuda.is_available() else 'cpu')
         self.class_filter = class_filter
         self.conv = conv
@@ -242,21 +208,7 @@ class FraudDataModule:
         # Load datasets if not provided
         self._load_datasets(train_dataset, val_dataset, test_dataset)
         
-        # Calculate normalization statistics from training data
-        if self.normalize:
-            temp_dataset = CreditCardFraudDataset(
-                dataset=self.train_dataset_raw,
-                normalize=False,
-                batch_size=batch_size,
-                device=device,
-                class_filter=self.class_filter,
-                conv=self.conv
-            )
-            self.stats_dict = temp_dataset._calculate_normalization_stats()
-            print(f"Normalization statistics (calculated from class {self.class_filter}): {self.stats_dict}")
-        else:
-            self.stats_dict = None
-        
+        # Set up the datasets
         self.setup()
     
     def _load_datasets(self, train_dataset, val_dataset, test_dataset):
@@ -273,17 +225,14 @@ class FraudDataModule:
     
     def setup(self):
         """
-        Set up datasets with proper normalization.
+        Set up datasets with proper configurations.
         """
         self.train_dataset = CreditCardFraudDataset(
             dataset=self.train_dataset_raw,
             exclude_cols=self.exclude_cols,
-            normalize_cols=self.normalize_cols,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
             num_workers=self.num_workers,
-            normalize=self.normalize,
-            stats_dict=self.stats_dict,
             device=self.device,
             class_filter=self.class_filter,
             conv=self.conv
@@ -292,12 +241,9 @@ class FraudDataModule:
         self.val_dataset = CreditCardFraudDataset(
             dataset=self.val_dataset_raw,
             exclude_cols=self.exclude_cols,
-            normalize_cols=self.normalize_cols,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            normalize=self.normalize,
-            stats_dict=self.stats_dict,
             device=self.device,
             class_filter=self.class_filter,
             conv=self.conv
@@ -306,12 +252,9 @@ class FraudDataModule:
         self.test_dataset = CreditCardFraudDataset(
             dataset=self.test_dataset_raw,
             exclude_cols=self.exclude_cols,
-            normalize_cols=self.normalize_cols,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            normalize=self.normalize,
-            stats_dict=self.stats_dict,
             device=self.device,
             class_filter=self.class_filter,
             conv=self.conv
@@ -336,23 +279,15 @@ class FraudDataModule:
             'val': self.val_dataloader,
             'test': self.test_dataloader
         }
-    
-    def get_stats_dict(self) -> Dict:
-        """
-        Get normalization statistics.
-        """
-        return self.stats_dict
 
 def load_fraud_data(train_dataset=None,
                    val_dataset=None,
                    test_dataset=None,
-                   dataset_name: str = "stanpony/european_credit_card_fraud_dataset",
+                   dataset_name: str = "stanpony/full_european_credit_card_fraud_dataset",
                    exclude_cols: List[str] = ['original_index', 'Class'],
-                   normalize_cols: List[str] = ['Time', 'Amount'],
                    batch_size: int = 64,
                    shuffle: bool = True,
                    num_workers: int = 4,
-                   normalize: bool = True,
                    config_path: str = None,
                    class_filter: Optional[int] = None) -> Dict:
     """
@@ -365,11 +300,9 @@ def load_fraud_data(train_dataset=None,
         if dataloader_config:
             dataset_name = dataloader_config.get('dataset_name', dataset_name)
             exclude_cols = dataloader_config.get('exclude_cols', exclude_cols)
-            normalize_cols = dataloader_config.get('normalize_cols', normalize_cols)
             batch_size = dataloader_config.get('batch_size', batch_size)
             shuffle = dataloader_config.get('shuffle', shuffle)
             num_workers = dataloader_config.get('num_workers', num_workers)
-            normalize = dataloader_config.get('normalize', normalize)
             class_filter = dataloader_config.get('class_filter', class_filter)
             conv = dataloader_config.get('conv', False)
         else:
@@ -383,11 +316,9 @@ def load_fraud_data(train_dataset=None,
         test_dataset=test_dataset,
         dataset_name=dataset_name,
         exclude_cols=exclude_cols,
-        normalize_cols=normalize_cols,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
-        normalize=normalize,
         class_filter=class_filter,
         conv=conv
     )
@@ -395,17 +326,14 @@ def load_fraud_data(train_dataset=None,
     return {
         'dataloaders': data_module.get_dataloaders(),
         'input_dim': data_module.get_input_dim(),
-        'stats_dict': data_module.get_stats_dict()
     }
 
 # Example usage of the dataloader script (this part runs when executing the script directly)
 if __name__ == "__main__":
-    #config_path = os.path.join(os.path.dirname(__file__), "..", "configs", "conv_vae", "fraud_conv_vae.config")
     config_path = os.path.join(os.path.dirname(__file__), "..", "configs", "classifier", "classifier.config")
 
     data = load_fraud_data(config_path=config_path)
     print(f"Input dimension: {data['input_dim']}")
-    print(f"Normalization statistics: {data['stats_dict']}")
     
     for split, loader in data['dataloaders'].items():
         features = next(iter(loader))

@@ -245,6 +245,13 @@ def train_model(config_path, model_class, config_section, loss_fn):
 
 if __name__ == "__main__":
     # Define model configurations to loop through
+    SEED=42
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     configs = {
         # VAE models
         "conv_vae": {

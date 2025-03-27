@@ -367,9 +367,6 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
             print(f"True Normal  {test_metrics['confusion_matrix'][0,0]:<11d} {test_metrics['confusion_matrix'][0,1]:<10d}")
             print(f"True Fraud   {test_metrics['confusion_matrix'][1,0]:<11d} {test_metrics['confusion_matrix'][1,1]:<10d}")
 
-            # Add to summary table row
-            print(f"{model_config['type']:<20} | {model_config['class_type']:<6} | {best_f1_on_val:<17.4f} | {best_threshold:<10.6f} | {test_metrics['f1_score']:<8.4f}")
-
             # Plot results
             test_results = {'errors': test_errors, 'true_labels': test_labels}
             evaluator.plot_results(test_results, test_metrics, save_dir)
@@ -499,53 +496,52 @@ def main():
         {
             'type': 'conv_vae',
             'class_type': 'normal',
-            'model_path': "./saved_models/conv_vae/normal_conv_vae/20250326_193247/best_model.pt",
+            'model_path': "./saved_models/conv_vae/normal_conv_vae/20250327_011508/best_model.pt",
             'config': "configs/conv_vae/normal_conv_vae.config",
         },
         {
             'type': 'conv_vae',
             'class_type': 'fraud',
-            'model_path': "./saved_models/conv_vae/fraud_conv_vae/20250326_193004/best_model.pt", 
+            'model_path': "./saved_models/conv_vae/fraud_conv_vae/20250327_011207/best_model.pt", 
             'config': "configs/conv_vae/fraud_conv_vae.config",
         },
         {
             'type': 'transformer_vae',
             'class_type': 'normal',
-            'model_path': "./saved_models/transformer_vae/normal_transformer_vae/20250326_194307/best_model.pt",
+            'model_path': "./saved_models/transformer_vae/normal_transformer_vae/20250327_012116/best_model.pt",
             'config': "configs/transformer_vae/normal_transformer_vae.config",
         },
         {
             'type': 'transformer_vae',
             'class_type': 'fraud',
-            'model_path': "./saved_models/transformer_vae/fraud_transformer_vae/20250326_193957/best_model.pt",
+            'model_path': "./saved_models/transformer_vae/fraud_transformer_vae/20250327_011805/best_model.pt",
             'config': "configs/transformer_vae/fraud_transformer_vae.config",
         },
         {
             'type': 'conv_vqvae',
             'class_type': 'normal',
-            'model_path': "./saved_models/conv_vqvae/normal_conv_vqvae/20250326_195131/best_model.pt",
+            'model_path': "./saved_models/conv_vqvae/normal_conv_vqvae/20250327_013018/best_model.pt",
             'config': "configs/conv_vqvae/normal_conv_vqvae.config",
         },
         {
             'type': 'conv_vqvae',
             'class_type': 'fraud',
-            'model_path': "./saved_models/conv_vqvae/fraud_conv_vqvae/20250326_195012/best_model.pt",
+            'model_path': "./saved_models/conv_vqvae/fraud_conv_vqvae/20250327_012830/best_model.pt",
             'config': "configs/conv_vqvae/fraud_conv_vqvae.config",
         },
         {
             'type': 'transformer_vqvae',
             'class_type': 'normal',
-            'model_path': "./saved_models/transformer_vqvae/normal_transformer_vqvae/20250326_195739/best_model.pt",
+            'model_path': "./saved_models/transformer_vqvae/normal_transformer_vqvae/20250327_013948/best_model.pt",
             'config': "configs/transformer_vqvae/normal_transformer_vqvae.config",
         },
         {
             'type': 'transformer_vqvae',
             'class_type': 'fraud',
-            'model_path': "./saved_models/transformer_vqvae/fraud_transformer_vqvae/20250326_195426/best_model.pt",
+            'model_path': "./saved_models/transformer_vqvae/fraud_transformer_vqvae/20250327_013646/best_model.pt",
             'config': "configs/transformer_vqvae/fraud_transformer_vqvae.config",
         }
     ]
-
 
 
     print(f"Evaluating {len(model_configs)} models:")
