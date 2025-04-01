@@ -11,7 +11,7 @@ from trainer.trainer_vae import VAETrainer  # Updated trainer
 # Add this import for VQVAETrainer
 from trainer.trainer_vqvae import VQVAETrainer
 #from dataloader.dataloader import load_fraud_data, load_config
-from amlf_proj_new.dataloader.old_dataloader import load_fraud_data, load_config
+from dataloader.dataloader import load_fraud_data, load_config
 from utils.model_saver import save_model, get_save_directory
 from utils.wandb_logger_lr import WandBLogger
 from utils.lr_scheduler import create_scheduler  # New scheduler utility
@@ -28,14 +28,14 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 # Build the config path
-#config_path = "configs/conv_vae/fraud_conv_vae.config"
+config_path = "configs/conv_vae/fraud_conv_vae.config"
 #config_path = "configs/conv_vae/normal_conv_vae.config"
 
 #config_path="configs/conv_vqvae/fraud_conv_vqvae.config"
 #config_path="configs/conv_vqvae/normal_conv_vqvae.config"
 
 #config_path = "configs/transformer_vqvae/fraud_transformer_vqvae.config"
-config_path = "configs/transformer_vqvae/normal_transformer_vqvae.config"
+#config_path = "configs/transformer_vqvae/normal_transformer_vqvae.config"
 #config_path = "configs/transformer_vae/fraud_transformer_vae.config"
 #config_path = "configs/transformer_vae/normal_transformer_vae.config"
 
@@ -45,9 +45,9 @@ config_path = "configs/transformer_vqvae/normal_transformer_vqvae.config"
 # Load configuration
 config_parser = configparser.ConfigParser()
 config_parser.read(config_path)
-#conv_vae_config = config_parser["Conv_VAE"]
+conv_vae_config = config_parser["Conv_VAE"]
 #conv_vae_config = config_parser["Transformer_VAE"]
-conv_vae_config = config_parser["Transformer_VQVAE"]
+#conv_vae_config = config_parser["Transformer_VQVAE"]
 #conv_vae_config = config_parser["Conv_VQVAE"]
 
 train_config = config_parser["Trainer"]
@@ -67,10 +67,10 @@ dataloaders = data['dataloaders']
 input_dim = data['input_dim']
 
 # Create model
-#model = ConvVae(conv_vae_config)
+model = ConvVae(conv_vae_config)
 #model=ConvVQVAE(conv_vae_config)
 #model = TransformerVae(conv_vae_config)
-model = TransformerVQVAE(conv_vae_config)
+#model = TransformerVQVAE(conv_vae_config)
 
 print("Model parameters:")
 print_num_params(model)
@@ -87,12 +87,12 @@ optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = create_scheduler(train_config, optimizer)
 
 # Define loss function
-#loss_fn = vae_loss_function
-loss_fn = vqvae_loss_function
+loss_fn = vae_loss_function
+#loss_fn = vqvae_loss_function
 
 # Create trainer with scheduler
-#trainer = VAETrainer(model, dataloaders, loss_fn, optimizer, scheduler)
-trainer = VQVAETrainer(model, dataloaders, loss_fn, optimizer, scheduler)
+trainer = VAETrainer(model, dataloaders, loss_fn, optimizer, scheduler)
+#trainer = VQVAETrainer(model, dataloaders, loss_fn, optimizer, scheduler)
 
 # Create save directory
 save_dir = get_save_directory(config_path)
@@ -109,10 +109,10 @@ try:
     # Training loop
     for epoch in range(1, num_epochs + 1):
         # Get both total loss and reconstruction loss
-        #train_loss, train_recon_loss = trainer.train_epoch()
-        #val_loss, val_recon_loss = trainer.validate_epoch()
-        train_loss, train_recon_loss, train_vq_loss = trainer.train_epoch()
-        val_loss, val_recon_loss, val_vq_loss = trainer.validate_epoch()
+        train_loss, train_recon_loss = trainer.train_epoch()
+        val_loss, val_recon_loss = trainer.validate_epoch()
+        #train_loss, train_recon_loss, train_vq_loss = trainer.train_epoch()
+        #val_loss, val_recon_loss, val_vq_loss = trainer.validate_epoch()
         
         train_losses.append(train_loss)
         val_losses.append(val_loss)

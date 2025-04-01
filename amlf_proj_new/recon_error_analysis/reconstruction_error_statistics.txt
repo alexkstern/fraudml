@@ -1,0 +1,334 @@
+RECONSTRUCTION ERROR STATISTICS ACROSS MODELS
+================================================================================
+
+Using device: cpu
+Loading evaluation data using config: configs/classifier/classifier.config
+
+
+----------------------------------------
+MODEL: CONV_VAE - CLASS: NORMAL
+----------------------------------------
+Calculating reconstruction errors...
+
+ALL SAMPLES (Count: 227845)
+  MIN: 0.085610
+  MAX: 1678.588501
+  MEAN: 0.842940
+  MEDIAN: 0.499725
+  STD: 4.575348
+  Q1: 0.315506
+  Q3: 0.822989
+  IQR: 0.507483
+
+NORMAL SAMPLES (Count: 227451)
+  MIN: 0.085610
+  MAX: 1678.588501
+  MEAN: 0.802091
+  MEDIAN: 0.499015
+  STD: 4.229208
+  Q1: 0.315260
+  Q3: 0.821029
+  IQR: 0.505769
+
+FRAUD SAMPLES (Count: 394)
+  MIN: 0.327985
+  MAX: 264.686707
+  MEAN: 24.424294
+  MEDIAN: 9.372873
+  STD: 34.974754
+  Q1: 4.046172
+  Q3: 22.525857
+  IQR: 18.479685
+
+RATIOS (Fraud / Normal):
+  MEAN RATIO: 30.450763
+  MEDIAN RATIO: 18.782751
+
+----------------------------------------
+MODEL: CONV_VAE - CLASS: FRAUD
+----------------------------------------
+Calculating reconstruction errors...
+
+ALL SAMPLES (Count: 227845)
+  MIN: 0.013559
+  MAX: 1529.061035
+  MEAN: 1.024893
+  MEDIAN: 0.740545
+  STD: 3.981121
+  Q1: 0.493181
+  Q3: 1.081783
+  IQR: 0.588602
+
+NORMAL SAMPLES (Count: 227451)
+  MIN: 0.115434
+  MAX: 1529.061035
+  MEAN: 1.025645
+  MEDIAN: 0.741077
+  STD: 3.984359
+  Q1: 0.493621
+  Q3: 1.082382
+  IQR: 0.588761
+
+FRAUD SAMPLES (Count: 394)
+  MIN: 0.013559
+  MAX: 16.113386
+  MEAN: 0.590772
+  MEDIAN: 0.476214
+  STD: 0.878446
+  Q1: 0.297128
+  Q3: 0.679334
+  IQR: 0.382206
+
+RATIOS (Fraud / Normal):
+  MEAN RATIO: 0.576000
+  MEDIAN RATIO: 0.642597
+
+----------------------------------------
+MODEL: TRANSFORMER_VAE - CLASS: NORMAL
+----------------------------------------
+Calculating reconstruction errors...
+
+ALL SAMPLES (Count: 227845)
+  MIN: 0.153870
+  MAX: 1818.084839
+  MEAN: 1.089544
+  MEDIAN: 0.642479
+  STD: 5.582377
+  Q1: 0.441033
+  Q3: 0.974044
+  IQR: 0.533011
+
+NORMAL SAMPLES (Count: 227451)
+  MIN: 0.153870
+  MAX: 1818.084839
+  MEAN: 1.045791
+  MEDIAN: 0.641726
+  STD: 5.260182
+  Q1: 0.440725
+  Q3: 0.971716
+  IQR: 0.530991
+
+FRAUD SAMPLES (Count: 394)
+  MIN: 0.340317
+  MAX: 270.406281
+  MEAN: 26.347910
+  MEDIAN: 10.039545
+  STD: 37.533638
+  Q1: 4.092434
+  Q3: 24.791753
+  IQR: 20.699320
+
+RATIOS (Fraud / Normal):
+  MEAN RATIO: 25.194245
+  MEDIAN RATIO: 15.644607
+
+----------------------------------------
+MODEL: TRANSFORMER_VAE - CLASS: FRAUD
+----------------------------------------
+Calculating reconstruction errors...
+
+ALL SAMPLES (Count: 227845)
+  MIN: 0.274968
+  MAX: 1842.689575
+  MEAN: 1.576828
+  MEDIAN: 1.005890
+  STD: 5.633495
+  Q1: 0.771450
+  Q3: 1.362001
+  IQR: 0.590551
+
+NORMAL SAMPLES (Count: 227451)
+  MIN: 0.274968
+  MAX: 1842.689575
+  MEAN: 1.569544
+  MEDIAN: 1.005252
+  STD: 5.611056
+  Q1: 0.771194
+  Q3: 1.360274
+  IQR: 0.589080
+
+FRAUD SAMPLES (Count: 394)
+  MIN: 0.304804
+  MAX: 104.424469
+  MEAN: 5.782071
+  MEDIAN: 2.542432
+  STD: 12.636568
+  Q1: 1.294805
+  Q3: 4.871685
+  IQR: 3.576880
+
+RATIOS (Fraud / Normal):
+  MEAN RATIO: 3.683918
+  MEDIAN RATIO: 2.529148
+
+----------------------------------------
+MODEL: CONV_VQVAE - CLASS: NORMAL
+----------------------------------------
+Calculating reconstruction errors...
+
+ALL SAMPLES (Count: 227845)
+  MIN: 0.154120
+  MAX: 1818.115112
+  MEAN: 1.089535
+  MEDIAN: 0.643074
+  STD: 5.582074
+  Q1: 0.440999
+  Q3: 0.974177
+  IQR: 0.533178
+
+NORMAL SAMPLES (Count: 227451)
+  MIN: 0.154120
+  MAX: 1818.115112
+  MEAN: 1.045807
+  MEDIAN: 0.642174
+  STD: 5.260076
+  Q1: 0.440701
+  Q3: 0.971837
+  IQR: 0.531136
+
+FRAUD SAMPLES (Count: 394)
+  MIN: 0.341128
+  MAX: 270.393890
+  MEAN: 26.333162
+  MEDIAN: 10.024958
+  STD: 37.526176
+  Q1: 4.085878
+  Q3: 24.770633
+  IQR: 20.684754
+
+RATIOS (Fraud / Normal):
+  MEAN RATIO: 25.179748
+  MEDIAN RATIO: 15.610958
+
+----------------------------------------
+MODEL: CONV_VQVAE - CLASS: FRAUD
+----------------------------------------
+Calculating reconstruction errors...
+
+ALL SAMPLES (Count: 227845)
+  MIN: 1.085443
+  MAX: 1813.597290
+  MEAN: 2.205583
+  MEDIAN: 1.794192
+  STD: 5.411223
+  Q1: 1.597109
+  Q3: 2.134440
+  IQR: 0.537331
+
+NORMAL SAMPLES (Count: 227451)
+  MIN: 1.085443
+  MAX: 1813.597290
+  MEAN: 2.171950
+  MEDIAN: 1.793491
+  STD: 5.175785
+  Q1: 1.596815
+  Q3: 2.131963
+  IQR: 0.535148
+
+FRAUD SAMPLES (Count: 394)
+  MIN: 1.125141
+  MAX: 251.274338
+  MEAN: 21.621756
+  MEDIAN: 7.192826
+  STD: 33.023933
+  Q1: 2.816865
+  Q3: 18.252024
+  IQR: 15.435159
+
+RATIOS (Fraud / Normal):
+  MEAN RATIO: 9.954999
+  MEDIAN RATIO: 4.010516
+
+----------------------------------------
+MODEL: TRANSFORMER_VQVAE - CLASS: NORMAL
+----------------------------------------
+Calculating reconstruction errors...
+
+ALL SAMPLES (Count: 227845)
+  MIN: 0.003228
+  MAX: 1285.155396
+  MEAN: 0.051624
+  MEDIAN: 0.014226
+  STD: 2.947987
+  Q1: 0.011434
+  Q3: 0.019039
+  IQR: 0.007605
+
+NORMAL SAMPLES (Count: 227451)
+  MIN: 0.003228
+  MAX: 1285.155396
+  MEAN: 0.047599
+  MEDIAN: 0.014217
+  STD: 2.936952
+  Q1: 0.011430
+  Q3: 0.019004
+  IQR: 0.007574
+
+FRAUD SAMPLES (Count: 394)
+  MIN: 0.008141
+  MAX: 68.603935
+  MEAN: 2.375426
+  MEDIAN: 0.488047
+  STD: 6.384949
+  Q1: 0.077816
+  Q3: 2.004821
+  IQR: 1.927005
+
+RATIOS (Fraud / Normal):
+  MEAN RATIO: 49.904956
+  MEDIAN RATIO: 34.329099
+
+----------------------------------------
+MODEL: TRANSFORMER_VQVAE - CLASS: FRAUD
+----------------------------------------
+Calculating reconstruction errors...
+
+ALL SAMPLES (Count: 227845)
+  MIN: 0.045180
+  MAX: 1295.504272
+  MEAN: 0.259529
+  MEDIAN: 0.223379
+  STD: 2.874509
+  Q1: 0.190620
+  Q3: 0.260798
+  IQR: 0.070178
+
+NORMAL SAMPLES (Count: 227451)
+  MIN: 0.045180
+  MAX: 1295.504272
+  MEAN: 0.258610
+  MEDIAN: 0.223296
+  STD: 2.876207
+  Q1: 0.190552
+  Q3: 0.260611
+  IQR: 0.070058
+
+FRAUD SAMPLES (Count: 394)
+  MIN: 0.161620
+  MAX: 17.476353
+  MEAN: 0.790068
+  MEDIAN: 0.402315
+  STD: 1.530412
+  Q1: 0.281239
+  Q3: 0.720089
+  IQR: 0.438850
+
+RATIOS (Fraud / Normal):
+  MEAN RATIO: 3.055052
+  MEDIAN RATIO: 1.801713
+
+
+================================================================================
+SUMMARY OF RECONSTRUCTION ERRORS ACROSS MODELS
+================================================================================
+
+MODEL TYPE           CLASS TYPE NORMAL MEAN     NORMAL IQR      FRAUD MEAN      FRAUD IQR       MEAN RATIO     
+---------------------------------------------------------------------------------------------------------
+conv_vae             normal     0.802091        0.505769        24.424294       18.479685       30.4508        
+conv_vae             fraud      1.025645        0.588761        0.590772        0.382206        0.5760         
+transformer_vae      normal     1.045791        0.530991        26.347910       20.699320       25.1942        
+transformer_vae      fraud      1.569544        0.589080        5.782071        3.576880        3.6839         
+conv_vqvae           normal     1.045807        0.531136        26.333162       20.684754       25.1797        
+conv_vqvae           fraud      2.171950        0.535148        21.621756       15.435159       9.9550         
+transformer_vqvae    normal     0.047599        0.007574        2.375426        1.927005        49.9050        
+transformer_vqvae    fraud      0.258610        0.070058        0.790068        0.438850        3.0551         

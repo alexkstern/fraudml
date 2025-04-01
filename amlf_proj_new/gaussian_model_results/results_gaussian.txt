@@ -1,0 +1,62 @@
+Gaussian Models Evaluation Results
+Date: 2025-03-31 20:28:00
+================================================================================
+
+
+NORMAL MODEL
+--------------------------------------------------
+Optimal threshold: likelihood < 820.381900
+F1 score on train+val: 0.5423
+
+TEST RESULTS:
+F1 Score: 0.5600
+
+Confusion Matrix:
+             Pred Normal  Pred Fraud
+True Normal  28409       23        
+True Fraud   21          28        
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00     28432
+           1       0.55      0.57      0.56        49
+
+    accuracy                           1.00     28481
+   macro avg       0.77      0.79      0.78     28481
+weighted avg       1.00      1.00      1.00     28481
+
+
+
+FRAUD MODEL
+--------------------------------------------------
+Optimal threshold: likelihood > -35.071503
+F1 score on train+val: 0.0442
+
+TEST RESULTS:
+F1 Score: 0.0000
+
+Confusion Matrix:
+             Pred Normal  Pred Fraud
+True Normal  28412       20        
+True Fraud   49          0         
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00     28432
+           1       0.00      0.00      0.00        49
+
+    accuracy                           1.00     28481
+   macro avg       0.50      0.50      0.50     28481
+weighted avg       1.00      1.00      1.00     28481
+
+
+
+================================================================================
+MODEL COMPARISON SUMMARY
+================================================================================
+Model Type      Threshold       Train+Val F1    Test F1        
+------------------------------------------------------------
+normal          820.381900      0.5423          0.5600         
+fraud           -35.071503      0.0442          0.0000         

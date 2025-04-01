@@ -2,13 +2,11 @@ import os
 import torch
 import numpy as np
 import matplotlib
-matplotlib.use('Agg') # Use non-interactive backend
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
-import configparser
-# Make sure f1_score and precision_recall_curve are imported
 from sklearn.metrics import (confusion_matrix, classification_report, f1_score,
                              accuracy_score, precision_score, recall_score,
-                             precision_recall_curve) # Added precision_recall_curve
+                             precision_recall_curve)
 import seaborn as sns
 from dataloader.dataloader_classifier import load_fraud_classification_data
 from models.conv_vae_model import ConvVae
@@ -19,7 +17,6 @@ from models.transformer_vqvae_model import TransformerVQVAE
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 class IndependentModelEvaluator:
-    # ... (init, load_model, calculate_reconstruction_errors remain the same) ...
     def __init__(self, model_type, model_path, config_path, device=None, class_type=None):
         self.model_type = model_type
         self.model_path = model_path
@@ -43,6 +40,7 @@ class IndependentModelEvaluator:
             raise ValueError(f"Unsupported model type: {model_type}. Must be one of {list(self.model_mapping.keys())}")
 
         self.model_info = self.model_mapping[model_type]
+        import configparser
         config_parser = configparser.ConfigParser()
         config_parser.read(config_path)
         # Handle potential missing section more gracefully
@@ -56,8 +54,6 @@ class IndependentModelEvaluator:
     def load_model(self, model_path):
         model_class = self.model_info['class']
         # Ensure input_dim is passed correctly if model expects it (check model __init__)
-        # Assuming config contains input_dim needed by model constructors
-        # Add error handling for missing input_dim if necessary
         if 'input_dim' not in self.model_config and hasattr(model_class, '__init__') and 'input_dim' in model_class.__init__.__code__.co_varnames:
              print(f"Warning: 'input_dim' might be missing in config section [{self.model_info['section']}] for {model_class.__name__}")
              # Attempt to load anyway, might fail if model needs it strictly
@@ -120,7 +116,6 @@ class IndependentModelEvaluator:
 
                     # Mean over channel and feature dims (dims 1 and 2)
                     recon_error = ((recon - batch_features) ** 2).mean(dim=tuple(range(1, recon.ndim)))
-
                     all_errors.extend(recon_error.cpu().numpy())
                     all_labels.extend(batch_labels.numpy())
                 except Exception as e:
@@ -129,7 +124,6 @@ class IndependentModelEvaluator:
                      traceback.print_exc() # Print detailed traceback
                      continue # Skip problematic batch
 
-
         if not all_errors: # Handle case where all batches failed
             print("Warning: No errors calculated, possibly due to errors in all batches.")
             return np.array([]), np.array([])
@@ -137,94 +131,77 @@ class IndependentModelEvaluator:
         return np.array(all_errors), np.array(all_labels)
 
 
-    # --- MODIFIED find_best_threshold ---
- # Only modifying the relevant parts of your code
-
     def find_best_threshold(self, errors, true_labels):
         """
-        Find the best classification threshold based on maximizing F1-score on the provided errors/labels.
-
-        Args:
-            errors: Array of reconstruction errors.
-            true_labels: Array of true labels (0=normal, 1=fraud).
-
-        Returns:
-            best_threshold: Optimal threshold value based on F1 score.
-            best_f1: Best F1 score achieved.
+        Find the optimal threshold by considering candidate thresholds computed 
+        only from the fraud errors, then maximize F1 on the combined set.
         """
+        # Identify fraud errors
+        fraud_errors = errors[true_labels == 1]
+        if len(fraud_errors) == 0:
+            raise ValueError("No fraud examples found for threshold selection.")
+        
+        # Generate candidate thresholds from fraud errors
+        candidate_thresholds = np.percentile(fraud_errors, np.linspace(0.1, 99.9, 200))
+        candidate_thresholds = np.unique(candidate_thresholds)
+        
         best_f1 = -1.0
-        best_threshold = np.median(errors) # Default threshold if no F1 > 0 found
+        best_threshold = np.median(fraud_errors)
+        best_condition_is_greater = True  # default assumption
 
-        # Determine the "positive" prediction condition based on model type
-        if self.class_type == 'normal':
-            # High error means anomaly (fraud is positive class = 1)
-            positive_condition = lambda e, t: e > t
-        else: # fraud model
-            # Low error means it's the trained class (fraud is positive class = 1)
-            positive_condition = lambda e, t: e <= t # Note the <= here
+        # Try both conditions: predict fraud when error > threshold or when error <= threshold
+        for condition_is_greater in [True, False]:
+            for t in candidate_thresholds:
+                if condition_is_greater:
+                    predictions = (errors > t).astype(int)
+                else:
+                    predictions = (errors <= t).astype(int)
+                
+                current_f1 = f1_score(true_labels, predictions, pos_label=1, zero_division=0)
+                
+                if current_f1 > best_f1:
+                    best_f1 = current_f1
+                    best_threshold = t
+                    best_condition_is_greater = condition_is_greater
 
-        # Generate potential thresholds - using percentiles is often robust
-        thresholds = np.percentile(errors, np.linspace(0.1, 99.9, 200)) # 200 thresholds from 0.1th to 99.9th percentile
-        thresholds = np.unique(thresholds) # Remove duplicates
-
-        if len(thresholds) < 2: # Handle cases with very few unique errors
-            thresholds = np.linspace(np.min(errors), np.max(errors), 50)
-
-        print(f"Searching for best threshold among {len(thresholds)} candidates...")
-
-        f1_scores = []
-        for t in thresholds:
-            predictions = positive_condition(errors, t).astype(int)
-            # Calculate F1 specifically for the positive class (fraud=1)
-            current_f1 = f1_score(true_labels, predictions, pos_label=1, zero_division=0)
-            f1_scores.append(current_f1)
-
-            if current_f1 > best_f1:
-                best_f1 = current_f1
-                best_threshold = t
-
-        if best_f1 <= 0:
-            print(f"Warning: Could not find a threshold with F1 > 0. Max F1 was {best_f1:.4f}. Using median error {best_threshold:.6f} as fallback threshold.")
-
-        # Modified to include more detailed printing
-        print(f"Best threshold found: {best_threshold:.6f} with Max F1-score (training+val): {best_f1:.4f}")
-
-        return best_threshold, best_f1
-
-    # --- END MODIFIED find_best_threshold ---
+        condition_description = ">" if best_condition_is_greater else "<="
+        print(f"Best threshold (fraud subset): {best_threshold:.6f} with condition 'errors {condition_description} threshold'")
+        print(f"Max F1-score (using fraud subset candidates): {best_f1:.4f}")
+        
+        return best_threshold, best_f1, best_condition_is_greater
 
 
-    # --- compute_metrics remains the same, uses the threshold found above ---
-    def compute_metrics(self, errors, true_labels, threshold):
-        """Compute classification metrics using the specified threshold."""
-        if self.class_type == 'normal':
-            # High error -> predict fraud (1)
+
+    def compute_metrics(self, errors, true_labels, threshold, condition_is_greater=True):
+        """Compute classification metrics using the specified threshold and condition."""
+        if condition_is_greater:
+            # Predict fraud when error > threshold
             predictions = (errors > threshold).astype(int)
-        else: # fraud model
-            # Low error -> predict fraud (1)
+        else:
+            # Predict fraud when error <= threshold
             predictions = (errors <= threshold).astype(int)
-
+        
         conf_matrix = confusion_matrix(true_labels, predictions)
         # Ensure labels=[0, 1] if not all classes present in predictions
         cls_report_dict = classification_report(true_labels, predictions, output_dict=True, zero_division=0, labels=[0, 1])
-
+        
         # Calculate metrics specifically for the positive class (fraud=1)
         precision = precision_score(true_labels, predictions, pos_label=1, zero_division=0)
         recall = recall_score(true_labels, predictions, pos_label=1, zero_division=0)
         f1 = f1_score(true_labels, predictions, pos_label=1, zero_division=0)
-        accuracy = accuracy_score(true_labels, predictions) # Overall accuracy
-
+        accuracy = accuracy_score(true_labels, predictions)
+        
         return {
             'confusion_matrix': conf_matrix,
-            'classification_report': cls_report_dict, # Use the dict version
+            'classification_report': cls_report_dict,
             'accuracy': accuracy,
-            'precision': precision, # Precision for class 1
-            'recall': recall,       # Recall for class 1
-            'f1_score': f1,         # F1 for class 1
-            'threshold': threshold
+            'precision': precision,
+            'recall': recall,
+            'f1_score': f1,
+            'threshold': threshold,
+            'condition_is_greater': condition_is_greater
         }
 
-    # --- plot_results remains mostly the same ---
     def plot_results(self, results, metrics, save_dir=None):
         if save_dir:
             os.makedirs(save_dir, exist_ok=True)
@@ -232,6 +209,9 @@ class IndependentModelEvaluator:
         errors = results['errors']
         true_labels = results['true_labels']
         threshold = metrics['threshold']
+        condition_is_greater = metrics['condition_is_greater']
+        condition_description = ">" if condition_is_greater else "<="
+        
         if len(errors) == 0:
              print("Skipping plots as no errors were recorded.")
              return
@@ -240,16 +220,17 @@ class IndependentModelEvaluator:
         plt.figure(figsize=(10, 6))
         try:
              # Use log scale for y-axis if densities vary widely? Or clip errors?
-             sns.kdeplot(errors[true_labels == 0], label='Normal (Class 0)', fill=True, warn_singular=False, log_scale=False) # Added warn_singular=False
+             sns.kdeplot(errors[true_labels == 0], label='Normal (Class 0)', fill=True, warn_singular=False, log_scale=False)
              sns.kdeplot(errors[true_labels == 1], label='Fraud (Class 1)', fill=True, warn_singular=False, log_scale=False)
-             plt.axvline(threshold, color='r', linestyle='--', label=f'Threshold: {threshold:.4f}')
+             plt.axvline(threshold, color='r', linestyle='--', 
+                         label=f'Threshold: {threshold:.4f} (Fraud when error {condition_description} threshold)')
              plt.xlabel('Reconstruction Error')
              plt.ylabel('Density')
              plt.title(f'{self.model_type} ({self.class_type}) - Reconstruction Error Distribution')
              # Set xlim potentially based on percentiles to avoid extreme outliers dominating plot
              lower_lim = np.percentile(errors, 0.1)
              upper_lim = np.percentile(errors, 99.9)
-             plt.xlim(max(0, lower_lim - 0.1*(upper_lim-lower_lim)), upper_lim + 0.1*(upper_lim-lower_lim)) # Adjust limits slightly
+             plt.xlim(max(0, lower_lim - 0.1*(upper_lim-lower_lim)), upper_lim + 0.1*(upper_lim-lower_lim))
              plt.legend()
              plt.grid(True, alpha=0.3)
              if save_dir:
@@ -267,12 +248,12 @@ class IndependentModelEvaluator:
                  annot=True,
                  fmt='d',
                  cmap='Blues',
-                 xticklabels=['Pred Normal', 'Pred Fraud'], # More specific labels
+                 xticklabels=['Pred Normal', 'Pred Fraud'],
                  yticklabels=['True Normal', 'True Fraud']
              )
              plt.xlabel('Predicted Label')
              plt.ylabel('True Label')
-             plt.title(f'{self.model_type} ({self.class_type}) - Confusion Matrix (Thresh={threshold:.4f})')
+             plt.title(f'{self.model_type} ({self.class_type}) - Confusion Matrix\n(Thresh={threshold:.4f}, Fraud when error {condition_description} threshold)')
              if save_dir:
                  plt.savefig(os.path.join(save_dir, f"{self.model_type}_{self.class_type}_confusion_matrix.png"))
              plt.close()
@@ -280,11 +261,9 @@ class IndependentModelEvaluator:
              print(f"Error plotting confusion matrix: {e}")
              plt.close()
 
-# --- evaluate_all_models function needs slight adjustment for unpacking ---
 def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="evaluation_results_independent"):
     # Load classification data (using the specific eval config)
     print(f"Loading evaluation data using config: {classifier_config_path}")
-    # Ensure this dataloader uses the SAME normalization as training
     data = load_fraud_classification_data(config_path=classifier_config_path)
     # Check if dataloaders are empty
     if not data['dataloaders']['train'] or not data['dataloaders']['val'] or not data['dataloaders']['test']:
@@ -303,8 +282,8 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
 
     # Create a summary table for all models
     print("\n----- Model Threshold and F1 Score Summary -----")
-    print(f"{'Model Type':<20} | {'Class':<6} | {'Max F1 (train+val)':<17} | {'Threshold':<10} | {'Test F1':<8}")
-    print("-" * 75)
+    print(f"{'Model Type':<20} | {'Class':<6} | {'Max F1 (train+val)':<17} | {'Threshold':<10} | {'Condition':<10} | {'Test F1':<8}")
+    print("-" * 85)
 
     for model_config in model_configs:
         try:
@@ -339,10 +318,12 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
             combined_errors = np.concatenate([train_errors, val_errors])
             combined_labels = np.concatenate([train_labels, val_labels])
 
-            # Step 2: Find optimal threshold on combined data using F1 search
-            # The function now returns best_threshold, best_f1
-            best_threshold, best_f1_on_val = evaluator.find_best_threshold(combined_errors, combined_labels)
-            print(f"Optimal threshold on train+val (max F1={best_f1_on_val:.4f}): {best_threshold:.6f}")
+            # Step 2: Find optimal threshold on combined data using empirical F1 search
+            best_threshold, best_f1_on_val, condition_is_greater = evaluator.find_best_threshold(
+                combined_errors, combined_labels)
+            condition_desc = ">" if condition_is_greater else "<="
+            print(f"Optimal threshold on train+val (max F1={best_f1_on_val:.4f}): {best_threshold:.6f} "
+                  f"with condition 'errors {condition_desc} threshold'")
 
             # Step 3: Evaluate on test set
             print("Collecting reconstruction errors from test set...")
@@ -352,12 +333,13 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
                  print("Skipping test evaluation for this model due to no test errors.")
                  continue
 
-            # Step 4: Compute metrics using the found best_threshold
-            test_metrics = evaluator.compute_metrics(test_errors, test_labels, best_threshold)
+            # Step 4: Compute metrics using the found best_threshold and condition
+            test_metrics = evaluator.compute_metrics(
+                test_errors, test_labels, best_threshold, condition_is_greater)
 
             # Print metrics
             print("\nTest Set Classification Metrics (Class 1 = Fraud):")
-            print(f"Threshold: {test_metrics['threshold']:.6f}")
+            print(f"Threshold: {test_metrics['threshold']:.6f} (Fraud when errors {condition_desc} threshold)")
             print(f"Accuracy: {test_metrics['accuracy']:.4f}")
             print(f"Precision (Fraud): {test_metrics['precision']:.4f}")
             print(f"Recall (Fraud): {test_metrics['recall']:.4f}")
@@ -374,8 +356,9 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
             all_evaluations[model_id] = {
                 'results': test_results,
                 'metrics': test_metrics,
-                'train_val_f1': best_f1_on_val,  # Store the F1 from training+validation
-                'threshold': best_threshold
+                'train_val_f1': best_f1_on_val,
+                'threshold': best_threshold,
+                'condition_is_greater': condition_is_greater
             }
 
             # Store simplified results for comparison table
@@ -383,14 +366,15 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
             base_model_type = model_config['type'].split('_')[0] # conv or transformer
             vae_type = model_config['type'].split('_')[1] # vae or vqvae
             row = {
-                'model_type': f"{base_model_type}_{vae_type}", # Reconstruct full type
+                'model_type': f"{base_model_type}_{vae_type}",
                 'class_type': model_config['class_type'],
                 'precision': test_metrics['precision'],
                 'recall': test_metrics['recall'],
                 'f1_score': test_metrics['f1_score'],
                 'accuracy': test_metrics['accuracy'],
                 'train_val_f1': best_f1_on_val,
-                'threshold': best_threshold
+                'threshold': best_threshold,
+                'condition': '>' if condition_is_greater else '<='
             }
             compare_results.append(row)
 
@@ -399,16 +383,16 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
             import traceback
             traceback.print_exc()
 
-    # --- Comparison Table and Plot (adjust print formatting) ---
+    # --- Comparison Table and Plot (adjusted formatting to include condition) ---
     print("\n----- Model Comparison Summary -----")
-    print(f"{'Model Type':<20} | {'Class':<6} | {'Max F1 (train+val)':<17} | {'Threshold':<10} | {'Test F1':<8} | {'Precision':<9} | {'Recall':<8} | {'Accuracy':<8}")
-    print("-" * 95)
+    print(f"{'Model Type':<20} | {'Class':<6} | {'Max F1 (train+val)':<17} | {'Threshold':<10} | {'Condition':<10} | {'Test F1':<8} | {'Precision':<9} | {'Recall':<8} | {'Accuracy':<8}")
+    print("-" * 110)
 
     # Sort for consistent table output
     compare_results.sort(key=lambda x: (x['model_type'], x['class_type']))
 
     for row in compare_results:
-        print(f"{row['model_type']:<20} | {row['class_type']:<6} | {row['train_val_f1']:<17.4f} | {row['threshold']:<10.6f} | {row['f1_score']:<8.4f} | {row['precision']:<9.4f} | {row['recall']:<8.4f} | {row['accuracy']:<8.4f}")
+        print(f"{row['model_type']:<20} | {row['class_type']:<6} | {row['train_val_f1']:<17.4f} | {row['threshold']:<10.6f} | {row['condition']:<10} | {row['f1_score']:<8.4f} | {row['precision']:<9.4f} | {row['recall']:<8.4f} | {row['accuracy']:<8.4f}")
 
     # Save comparison results to CSV
     import csv
@@ -416,7 +400,7 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
     comparison_path = os.path.join(base_save_dir, "model_comparison.csv")
     if compare_results: # Only write if there are results
         with open(comparison_path, 'w', newline='') as csvfile:
-            fieldnames = ['model_type', 'class_type', 'train_val_f1', 'threshold', 'precision', 'recall', 'f1_score', 'accuracy']
+            fieldnames = ['model_type', 'class_type', 'train_val_f1', 'threshold', 'condition', 'precision', 'recall', 'f1_score', 'accuracy']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(compare_results)
@@ -424,7 +408,7 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
     else:
         print("\nNo evaluation results to save to CSV.")
 
-    # Create comparison plot - now with two plots, one for training+val F1 and one for test F1
+    # Create comparison plot - now with two plots
     if compare_results:
         # Figure 1: Compare train+val F1 with test F1 by model
         plt.figure(figsize=(14, 7))
@@ -486,9 +470,41 @@ def evaluate_all_models(classifier_config_path, model_configs, base_save_dir="ev
         plt.close()
         print(f"Original comparison plot saved to {original_plot_path}")
 
+        # New plot: Conditions by model type
+        plt.figure(figsize=(12, 7))
+        normal_conditions = []
+        fraud_conditions = []
+        
+        for name in model_names:
+            normal_row = next((r for r in compare_results if r['model_type'] == name and r['class_type'] == 'normal'), None)
+            fraud_row = next((r for r in compare_results if r['model_type'] == name and r['class_type'] == 'fraud'), None)
+            
+            # Convert condition to numeric for visualization (1 for '>', 0 for '<=')
+            normal_cond = 1 if normal_row and normal_row['condition'] == '>' else 0
+            fraud_cond = 1 if fraud_row and fraud_row['condition'] == '>' else 0
+            
+            normal_conditions.append(normal_cond)
+            fraud_conditions.append(fraud_cond)
+        
+        # Plot conditions (1 for '>', 0 for '<=')
+        plt.bar(x - width/2, normal_conditions, width, label='Normal Model')
+        plt.bar(x + width/2, fraud_conditions, width, label='Fraud Model')
+        
+        plt.ylabel('Condition (1 = ">" threshold, 0 = "<=" threshold)')
+        plt.title('Empirically Determined Conditions by Model Type')
+        plt.xticks(x, model_names, rotation=45, ha="right")
+        plt.yticks([0, 1], ['<= threshold', '> threshold'])
+        plt.legend()
+        plt.grid(True, axis='y', alpha=0.3)
+        plt.tight_layout()
+        
+        conditions_plot_path = os.path.join(base_save_dir, "model_conditions.png")
+        plt.savefig(conditions_plot_path)
+        plt.close()
+        print(f"Conditions plot saved to {conditions_plot_path}")
+
     return all_evaluations, compare_results
 
-# --- main function remains the same ---
 def main():
     classifier_config_path = "configs/classifier/classifier.config"
     # Update paths if needed, e.g., if you retrained fraud models
@@ -496,53 +512,52 @@ def main():
         {
             'type': 'conv_vae',
             'class_type': 'normal',
-            'model_path': "./saved_models/conv_vae/normal_conv_vae/20250327_011508/best_model.pt",
+            'model_path': "./saved_models/conv_vae/normal_conv_vae/20250327_175631/best_model.pt",
             'config': "configs/conv_vae/normal_conv_vae.config",
         },
         {
             'type': 'conv_vae',
             'class_type': 'fraud',
-            'model_path': "./saved_models/conv_vae/fraud_conv_vae/20250327_011207/best_model.pt", 
+            'model_path': "./saved_models/conv_vae/fraud_conv_vae/20250327_175451/best_model.pt", 
             'config': "configs/conv_vae/fraud_conv_vae.config",
         },
         {
             'type': 'transformer_vae',
             'class_type': 'normal',
-            'model_path': "./saved_models/transformer_vae/normal_transformer_vae/20250327_012116/best_model.pt",
+            'model_path': "./saved_models/transformer_vae/normal_transformer_vae/20250327_180851/best_model.pt",
             'config': "configs/transformer_vae/normal_transformer_vae.config",
         },
         {
             'type': 'transformer_vae',
             'class_type': 'fraud',
-            'model_path': "./saved_models/transformer_vae/fraud_transformer_vae/20250327_011805/best_model.pt",
+            'model_path': "./saved_models/transformer_vae/fraud_transformer_vae/20250327_180740/best_model.pt",
             'config': "configs/transformer_vae/fraud_transformer_vae.config",
         },
         {
             'type': 'conv_vqvae',
             'class_type': 'normal',
-            'model_path': "./saved_models/conv_vqvae/normal_conv_vqvae/20250327_013018/best_model.pt",
+            'model_path': "./saved_models/conv_vqvae/normal_conv_vqvae/20250327_181723/best_model.pt",
             'config': "configs/conv_vqvae/normal_conv_vqvae.config",
         },
         {
             'type': 'conv_vqvae',
             'class_type': 'fraud',
-            'model_path': "./saved_models/conv_vqvae/fraud_conv_vqvae/20250327_012830/best_model.pt",
+            'model_path': "./saved_models/conv_vqvae/fraud_conv_vqvae/20250327_181652/best_model.pt",
             'config': "configs/conv_vqvae/fraud_conv_vqvae.config",
-        },
+},
         {
             'type': 'transformer_vqvae',
             'class_type': 'normal',
-            'model_path': "./saved_models/transformer_vqvae/normal_transformer_vqvae/20250327_013948/best_model.pt",
+            'model_path': "./saved_models/transformer_vqvae/normal_transformer_vqvae/20250327_182930/best_model.pt",
             'config': "configs/transformer_vqvae/normal_transformer_vqvae.config",
         },
         {
             'type': 'transformer_vqvae',
             'class_type': 'fraud',
-            'model_path': "./saved_models/transformer_vqvae/fraud_transformer_vqvae/20250327_013646/best_model.pt",
+            'model_path': "./saved_models/transformer_vqvae/fraud_transformer_vqvae/20250327_182749/best_model.pt",
             'config': "configs/transformer_vqvae/fraud_transformer_vqvae.config",
         }
     ]
-
 
     print(f"Evaluating {len(model_configs)} models:")
     for config in model_configs:
@@ -553,6 +568,4 @@ def main():
 if __name__ == "__main__":
     import warnings
     warnings.filterwarnings("ignore", category=UserWarning) # Suppress some common warnings
-    # Set numpy print options for better confusion matrix display?
-    # np.set_printoptions(suppress=True)
     main()

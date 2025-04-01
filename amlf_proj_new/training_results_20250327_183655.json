@@ -3,9 +3,9 @@
     {
       "config_path": "configs/conv_vae/fraud_conv_vae.config",
       "model_class": "ConvVae",
-      "best_val_loss": 94.39286382147607,
-      "final_val_loss": 96.45521837599735,
-      "best_recon_loss": 88.25727487117686,
+      "best_val_loss": 29.64994158063616,
+      "final_val_loss": 30.02934420838648,
+      "best_recon_loss": 21.467941595583547,
       "status": "completed",
       "arch_type": "vae",
       "model_type": "conv",
@@ -15,9 +15,9 @@
     {
       "config_path": "configs/conv_vae/normal_conv_vae.config",
       "model_class": "ConvVae",
-      "best_val_loss": 32.540689778645834,
-      "final_val_loss": 32.54403446451823,
-      "best_recon_loss": 32.540689778645834,
+      "best_val_loss": 26.08140629439389,
+      "final_val_loss": 26.777311691086684,
+      "best_recon_loss": 24.321330253502325,
       "status": "completed",
       "arch_type": "vae",
       "model_type": "conv",
@@ -27,9 +27,9 @@
     {
       "config_path": "configs/transformer_vae/fraud_transformer_vae.config",
       "model_class": "TransformerVae",
-      "best_val_loss": 70.85780756524268,
-      "final_val_loss": 86.63603567569814,
-      "best_recon_loss": 63.917105167470076,
+      "best_val_loss": 180.6173020966199,
+      "final_val_loss": 356.81082589285717,
+      "best_recon_loss": 173.73078762755102,
       "status": "completed",
       "arch_type": "vae",
       "model_type": "transformer",
@@ -39,9 +39,9 @@
     {
       "config_path": "configs/transformer_vae/normal_transformer_vae.config",
       "model_class": "TransformerVae",
-      "best_val_loss": 32.5400205078125,
-      "final_val_loss": 32.541572428385415,
-      "best_recon_loss": 32.5400205078125,
+      "best_val_loss": 31.61824160797514,
+      "final_val_loss": 31.618882764774423,
+      "best_recon_loss": 31.618203461002484,
       "status": "completed",
       "arch_type": "vae",
       "model_type": "transformer",
@@ -51,9 +51,9 @@
     {
       "config_path": "configs/conv_vqvae/fraud_conv_vqvae.config",
       "model_class": "ConvVQVAE",
-      "best_val_loss": 594.5876412898937,
-      "final_val_loss": 603.1317320478723,
-      "best_recon_loss": 594.5876412898937,
+      "best_val_loss": 664.7155674525669,
+      "final_val_loss": 3186305.586734694,
+      "best_recon_loss": 627.1063568738042,
       "status": "completed",
       "arch_type": "vqvae",
       "model_type": "conv",
@@ -63,9 +63,9 @@
     {
       "config_path": "configs/conv_vqvae/normal_conv_vqvae.config",
       "model_class": "ConvVQVAE",
-      "best_val_loss": 32.330102783203124,
-      "final_val_loss": 32.558929117838545,
-      "best_recon_loss": 32.28866837565104,
+      "best_val_loss": 31.618615879795158,
+      "final_val_loss": 31.623288046730053,
+      "best_recon_loss": 31.618615879795158,
       "status": "completed",
       "arch_type": "vqvae",
       "model_type": "conv",
@@ -75,9 +75,9 @@
     {
       "config_path": "configs/transformer_vqvae/fraud_transformer_vqvae.config",
       "model_class": "TransformerVQVAE",
-      "best_val_loss": 14.981105723279589,
-      "final_val_loss": 23.87893092378657,
-      "best_recon_loss": 14.953947026678856,
+      "best_val_loss": 24.249230365363918,
+      "final_val_loss": 42.696001558887716,
+      "best_recon_loss": 24.189370019095286,
       "status": "completed",
       "arch_type": "vqvae",
       "model_type": "transformer",
@@ -87,9 +87,9 @@
     {
       "config_path": "configs/transformer_vqvae/normal_transformer_vqvae.config",
       "model_class": "TransformerVQVAE",
-      "best_val_loss": 1.167596035639445,
-      "final_val_loss": 32.54089290364583,
-      "best_recon_loss": 1.1429651368459066,
+      "best_val_loss": 1.270117025128495,
+      "final_val_loss": 4.843967149012131,
+      "best_recon_loss": 1.243705766014524,
       "status": "completed",
       "arch_type": "vqvae",
       "model_type": "transformer",
@@ -97,5 +97,5 @@
       "class_type": "normal"
     }
   ],
-  "total_time_seconds": 2070.012314081192
+  "total_time_seconds": 2541.972212791443
 }
